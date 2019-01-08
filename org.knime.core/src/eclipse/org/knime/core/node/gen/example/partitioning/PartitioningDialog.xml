@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<dialog>
+	<tab id="firstPartition">
+		<group id="rootGroup" layout="vertical" style="bordered">
+			<group layout="horizontal">
+				<radio id="partitioningMethod[0]" />
+				<spinner id="absoluteSize" stepsize="50">
+					<interaction property="enabled" mode="iff">
+					    <condition id="partitioningMethod[0]" property="selected" />
+					</interaction>
+				</spinner>
+			</group>
+			<group>
+				<radio id="partitioningMethod[1]" />
+				<spinner id="relativeSize" stepsize="2.0">
+					<interaction property="enabled" mode="iff">
+					    <condition id="partitioningMethod[1]" property="selected" />
+					</interaction>
+				</spinner>
+			</group>
+			<hline />
+			<radio id="samplingMethod[0]" />
+			<radio id="samplingMethod[1]" />
+			<radio id="samplingMethod[2]" />
+			<group>
+				<radio id="samplingMethod[3]" />
+				<dropdown id="stratifiedColumn">
+					<interaction property="enabled" mode="iff">
+					    <condition id="samplingMethod[3]" property="selected" />
+					</interaction>
+				</dropdown>
+			</group>
+			<group>
+				<checkbox id="useSeed">
+					<interaction property="enabled" mode="iff">
+						<or>
+						    <condition id="samplingMethod[2]" property="selected" />
+						    <condition id="samplingMethod[3]" property="selected" />
+						</or>
+					</interaction>
+				</checkbox>
+				<field id="seed">
+					<interaction property="enabled" mode="iff">
+						<and>
+							<or>
+							    <condition id="samplingMethod[2]" property="selected" />
+							    <condition id="samplingMethod[3]" property="selected" />
+							</or>
+						    <condition id="useSeed" property="selected" />
+						</and>
+					</interaction>
+				</field>
+			</group>
+		</group>
+	</tab>
+</dialog>
