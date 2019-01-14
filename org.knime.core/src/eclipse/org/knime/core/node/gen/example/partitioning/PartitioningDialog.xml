@@ -19,7 +19,7 @@
 				</spinner>
 			</group>
 			<hline />
-			<radio id="samplingMethod[0]" />
+			<radio id="samplingMethod[0]" /> <!-- TODO CD: why do we explicitly have to list these radio buttons here? shouldn't it be clear from how we nest the properties in the configuration how we layout these components? -->
 			<radio id="samplingMethod[1]" />
 			<radio id="samplingMethod[2]" />
 			<group>

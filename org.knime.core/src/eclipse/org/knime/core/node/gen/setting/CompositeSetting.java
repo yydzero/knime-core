@@ -20,6 +20,7 @@ public abstract class CompositeSetting<T extends CompositeSetting<T>> implements
     protected abstract T self();
 
     @Override
+    // TODO CD: this reflection code should not be part of the data model; it should be placed for instance into a separate util class
     public List<Setting<?>> getValue() {
         List<Setting<?>> value = new LinkedList<Setting<?>>();
         for (Field field : self().getClass().getDeclaredFields()) {

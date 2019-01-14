@@ -9,5 +9,8 @@ import java.lang.annotation.Target;
  */
 @Target({ElementType.FIELD})
 public @interface Nullable {
-
+  // TODO: CD: what does a value assigned to null mean?
+  // does it mean that the field in the dialog is disabled?
+  // if not, should a disabled field in the dialog be saved as null?
+  // if so, when a property is saved as null (or not saved at all since it is null) and it is then loaded, shouldn't it be replaced with it's default value?
 }

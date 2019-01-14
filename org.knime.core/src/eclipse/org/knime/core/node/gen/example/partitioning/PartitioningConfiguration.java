@@ -44,10 +44,13 @@ public class PartitioningConfiguration extends CompositeSetting<PartitioningConf
     @Id("absoluteSize")
     @UntilVersion(1)
     @IntegerConstraints(min = 0)
+    //TODO: CD: not a big fan of using custom classes here; int absoluteSizeInt would be so much easier;
+    //          however, then we'd have to explicitly annotate every setting (which could be a good thing)
     private final IntegerSetting absoluteSizeInt;
 
     @Id("absoluteSize")
     @SinceVersion(2)
+    //TODO: CD: not a fan of these annotation stacks; would be nicer to merge these annotations into a single one
     @LongConstraints(min = 0)
     private final LongSetting absoluteSizeLong;
 
@@ -58,12 +61,15 @@ public class PartitioningConfiguration extends CompositeSetting<PartitioningConf
 
     private final ColumnSelectionSetting stratifiedColumn;
 
+    //TODO CD: if we switch back to a purely annotation-based framework, the choices of a string selection could be placed into a factory method that is referenced in the annotations
+
     private final BooleanSetting useSeed;
 
     private final LongSetting seed;
 
     private final SomeCompositeSetting someCompositeSetting;
 
+    //TODO: CD: these will have to be constructed before the spec is known; instead, have a method configure(DataTableSpec[]) in the top-level interface
     public PartitioningConfiguration(final DataTableSpec[] spec) {
         partitioningMethod = new EnumSelectionSetting<>(PartitioningMethod.ABSOLUTE, PartitioningMethod.values());
         absoluteSizeInt = new IntegerSetting(100);
@@ -83,6 +89,7 @@ public class PartitioningConfiguration extends CompositeSetting<PartitioningConf
         someCompositeSetting = new SomeCompositeSetting();
     }
 
+    //TODO: CD: This method should not be necessary
     @Override
     protected PartitioningConfiguration self() { return this; }
 
