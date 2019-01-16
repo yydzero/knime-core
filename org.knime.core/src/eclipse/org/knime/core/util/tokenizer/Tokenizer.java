@@ -304,6 +304,15 @@ public class Tokenizer {
 
         m_settingsLocked = true;
 
+        //remove empty lines/whitespaces at beginning of document
+        if (m_lastToken == null) {
+            int c = getNextChar();
+            while (c == LF || isWhiteSpace((char)c)) {
+                c = getNextChar();
+            }
+            putBackChar(c);
+        }
+
         if (m_pushedBack) {
             // if the last token got pushed back just return it again.
             m_pushedBack = false;
