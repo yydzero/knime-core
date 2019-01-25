@@ -108,6 +108,7 @@ public final class ConfigurationAreaChecker {
         if (Boolean.getBoolean(KNIMEConstants.PROPERTY_DISABLE_VM_FILE_LOCK)) {
             getLogger().infoWithFormat("Disabled configuration area file locking due to system property \"%s\"",
                 KNIMEConstants.PROPERTY_DISABLE_VM_FILE_LOCK);
+            return;
         }
         Thread thread = new Thread(() -> {
             Path configLocationPath = getConfigurationLocationPath().orElse(null);
