@@ -46,6 +46,11 @@ package org.knime.core.util.tokenizer;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.Vector;
 
 /**
@@ -85,16 +90,20 @@ public class Tokenizer {
     private final Reader m_source;
 
     /* the column delimiters we handle */
-    private final Vector<Delimiter> m_delimPatterns;
+    private final List<Delimiter> m_delimPatterns = new ArrayList<>();
 
     /* the quotes for strings */
-    private final Vector<Quote> m_quotePatterns;
+    private final List<Quote> m_quotePatterns = new ArrayList<>();
 
     /* the patterns marking comments */
-    private final Vector<Comment> m_commentPatterns;
+    private final List<Comment> m_commentPatterns = new ArrayList<>();
 
     /* Vector of white space strings (only one char strings are allowed) */
-    private final Vector<String> m_whiteSpaces;
+    private final List<String> m_whiteSpaces = new ArrayList<>();
+
+    private final Set<Character> m_whiteSpaceSet = new HashSet<>();
+
+//    private final String[] m_whiteSpacePatterns;
 
     /* flag indicating combination of different consecutive delimiters */
     private boolean m_combineMultipleDelimiters;
@@ -165,7 +174,7 @@ public class Tokenizer {
     private int m_eobIdx;
 
     /* we build the token in here */
-    private StringBuffer m_newToken;
+    private StringBuilder m_newToken;
 
     /* the token returned by the last call to next() */
     private String m_lastToken;
@@ -225,17 +234,17 @@ public class Tokenizer {
 
         m_charType = new int[MAX_CHAR + 1];
 
-        m_delimPatterns = new Vector<Delimiter>();
-        m_quotePatterns = new Vector<Quote>();
-        m_commentPatterns = new Vector<Comment>();
-        m_whiteSpaces = new Vector<String>();
+//        m_delimPatterns = new Vector<Delimiter>();
+//        m_quotePatterns = new Vector<Quote>();
+//        m_commentPatterns = new Vector<Comment>();
+//        m_whiteSpaces = new Vector<String>();
 
         m_combineMultipleDelimiters = false;
         m_linesToSkip = 0;
         m_linesSkipped = 0;
         m_allowLFinQuotes = false;
 
-        m_newToken = new StringBuffer();
+        m_newToken = new StringBuilder();
         m_lastToken = null;
         m_pushedBack = false;
         m_lastQuotes = null;
@@ -271,6 +280,10 @@ public class Tokenizer {
         m_quotePatterns.clear();
         m_commentPatterns.clear();
         m_whiteSpaces.clear();
+        m_whiteSpaceSet.clear();
+        fillCommentPatternStrings();
+        fillDelimiterPatternStrings();
+        fillQuotePatternStrings();
 
         m_combineMultipleDelimiters = false;
         m_linesToSkip = 0;
@@ -484,7 +497,7 @@ public class Tokenizer {
             // m_currIdx points to the last char read from the buffer
             if (m_eobIdx == m_currIdx) {
                 // we need to read a new character from the stream
-                if ((m_readBuffer[m_currIdx] = m_source.read()) == -1) {
+                if (readIntoBuffer() == -1) {
                     // seen the EOF. Any further read will cause IOException.
                     m_source.close();
                 }
@@ -509,6 +522,14 @@ public class Tokenizer {
         } catch (IOException ioe) {
             return -1;
         }
+    }
+
+    /**
+     * @return
+     * @throws IOException
+     */
+    private int readIntoBuffer() throws IOException {
+        return m_readBuffer[m_currIdx] = m_source.read();
     }
 
     /*
@@ -569,12 +590,15 @@ public class Tokenizer {
      *         of whitespaces.
      */
     public boolean isWhiteSpace(final char c) {
-        for (int w = 0; w < m_whiteSpaces.size(); w++) {
-            if (m_whiteSpaces.get(w).charAt(0) == c) {
-                return true;
-            }
-        }
-        return false;
+//        for (int w = 0; w < m_whiteSpaces.size(); w++) {
+//            if (m_whiteSpaces.get(w).charAt(0) == c) {
+//                return true;
+//            }
+//        }
+//        return false;
+        return c == ' ' || c == '\t';
+//        Character boxed = Character.valueOf(c);
+//        return m_whiteSpaceSet.contains(boxed);
     }
 
     /**
@@ -585,7 +609,7 @@ public class Tokenizer {
      * @param str the stringbuffer to modify
      * @param index the lowest index we may modify
      */
-    private void cutOffWhiteSpaces(final StringBuffer str, final int index) {
+    private void cutOffWhiteSpaces(final StringBuilder str, final int index) {
 
         if (str.length() == 0) {
             return;
@@ -619,12 +643,12 @@ public class Tokenizer {
      * </code> if no matching pattern exists.
      */
     private Comment isCommentPattern() {
-        String[] patterns = new String[m_commentPatterns.size()];
-        for (int i = 0; i < patterns.length; i++) {
-            patterns[i] = m_commentPatterns.get(i).getBegin();
-        }
+//        String[] patterns = new String[m_commentPatterns.size()];
+//        for (int i = 0; i < patterns.length; i++) {
+//            patterns[i] = m_commentPatterns.get(i).getBegin();
+//        }
 
-        int index = matchPattern(patterns);
+        int index = matchPattern(m_commentPatternStrings, m_commentActive);
         if (index >= 0) {
             return m_commentPatterns.get(index);
         } else {
@@ -632,16 +656,44 @@ public class Tokenizer {
         }
     }
 
+    private String[] m_commentPatternStrings;
+
+    private boolean[] m_commentActive;
+
+    private void fillCommentPatternStrings() {
+        String[] patterns = new String[m_commentPatterns.size()];
+        for (int i = 0; i < patterns.length; i++) {
+            patterns[i] = m_commentPatterns.get(i).getBegin();
+        }
+        m_commentPatternStrings = patterns;
+        m_commentActive = new boolean[patterns.length];
+    }
+
     /*
      * @see #isCommentPattern
      */
     private Delimiter isDelimiterPattern() {
-        String[] patterns = new String[m_delimPatterns.size()];
-        for (int i = 0; i < patterns.length; i++) {
-            patterns[i] = m_delimPatterns.get(i).getDelimiter();
-        }
+//        String[] patterns = new String[m_delimPatterns.size()];
+//        for (int i = 0; i < patterns.length; i++) {
+//            patterns[i] = m_delimPatterns.get(i).getDelimiter();
+//        }
+//        final int c = getNextChar();
+//        final char cAsChar = (char)c;
+//        int result;
+//        if (cAsChar == ',') {
+//            result = 2;
+//        } else if (cAsChar == '\n') {
+//            result = 0;
+//        } else if (cAsChar == '\r') {
+//            result = 1;
+//        } else {
+//            result = -1;
+//        }
+//        putBackChar(c);
+//
+//        return result >= 0 ? m_delimPatterns.get(result) : null;
 
-        int index = matchPattern(patterns);
+        int index = matchPattern(m_delimiterPatternStrings, m_delimActive);
         if (index >= 0) {
             return m_delimPatterns.get(index);
         } else {
@@ -650,21 +702,47 @@ public class Tokenizer {
 
     }
 
+    private String[] m_delimiterPatternStrings;
+
+    boolean[] m_delimActive;
+
+    private void fillDelimiterPatternStrings() {
+        String[] patterns = new String[m_delimPatterns.size()];
+        for (int i = 0; i < patterns.length; i++) {
+            patterns[i] = m_delimPatterns.get(i).getDelimiter();
+        }
+        m_delimiterPatternStrings = patterns;
+        m_delimActive = new boolean[patterns.length];
+    }
+
     /*
      * @see #isCommentPattern
      */
     private Quote isQuotePattern() {
-        String[] patterns = new String[m_quotePatterns.size()];
-        for (int i = 0; i < patterns.length; i++) {
-            patterns[i] = m_quotePatterns.get(i).getLeft();
-        }
+//        String[] patterns = new String[m_quotePatterns.size()];
+//        for (int i = 0; i < patterns.length; i++) {
+//            patterns[i] = m_quotePatterns.get(i).getLeft();
+//        }
 
-        int index = matchPattern(patterns);
+        int index = matchPattern(m_quotePatternStrings, m_quoteActive);
         if (index >= 0) {
             return m_quotePatterns.get(index);
         } else {
             return null;
         }
+    }
+
+    private String[] m_quotePatternStrings;
+
+    private boolean[] m_quoteActive;
+
+    private void fillQuotePatternStrings() {
+        String[] patterns = new String[m_quotePatterns.size()];
+        for (int i = 0; i < patterns.length; i++) {
+            patterns[i] = m_quotePatterns.get(i).getLeft();
+        }
+        m_quotePatternStrings = patterns;
+        m_quoteActive = new boolean[patterns.length];
     }
 
     /*
@@ -677,11 +755,13 @@ public class Tokenizer {
      * array. NOTE: for the sake of performance the function modifies the
      * contents of the array.
      */
-    private int matchPattern(final String[] patterns) {
+    private int matchPattern(final String[] patterns, final boolean[] active) {
+        Arrays.fill(active, true);
         int possibleMatches = patterns.length;
         int charPos;
         int nextChar;
-        StringBuffer buffer = new StringBuffer();
+//        StringBuilder buffer = new StringBuilder();
+        clearBuffer();
         int result;
         /*
          * Here is what we do: We read one char after each other. With each new
@@ -703,10 +783,12 @@ public class Tokenizer {
             }
 
             // store it, to write it back at the end.
-            buffer.append((char)nextChar);
+//            buffer.append((char)nextChar);
+            addToBuffer(nextChar);
 
             for (int index = 0; index < patterns.length; index++) {
-                if (patterns[index] != null) {
+//                if (patterns[index] != null) {
+                if (active[index]) {
                     if (patterns[index].charAt(charPos) == nextChar) {
                         if (patterns[index].length() == (charPos + 1)) {
                             result = index;
@@ -715,7 +797,8 @@ public class Tokenizer {
                     } else {
                         // this char in the pattern doesn't match. Remove it
                         // from the list of possible matches
-                        patterns[index] = null;
+//                        patterns[index] = null;
+                        active[index] = false;
                         possibleMatches--;
                     }
                 }
@@ -726,9 +809,10 @@ public class Tokenizer {
         } // end of while
 
         // we are supposed to not read any characters from stream: push'em back.
-        for (int i = buffer.length(); i > 0;) {
-            putBackChar(buffer.charAt(--i));
-        }
+//        for (int i = buffer.length(); i > 0;) {
+//            putBackChar(buffer.charAt(--i));
+//        }
+        pushBackBuffer();
 
         return result;
     } // matchPattern(String[])
@@ -810,6 +894,25 @@ public class Tokenizer {
         return result.toString();
     } // readComment(string)
 
+    private final StringBuilder m_buffer = new StringBuilder();
+
+    private Set<Delimiter> m_uncombDelimsRead = new HashSet<>();
+
+    private void addToBuffer(final int nextChar) {
+        m_buffer.append((char)nextChar);
+    }
+
+    private void clearBuffer() {
+        m_buffer.setLength(0);
+    }
+
+    private void pushBackBuffer() {
+        for (int i = m_buffer.length(); i > 0;) {
+            // write back what turned out not to be a delimiter
+            putBackChar(m_buffer.charAt(--i));
+        }
+    }
+
     /*
      * Reads the delimiter specified in delim from the stream (or buffer).
      * Depending on the 'combineConsecutiveDelims' setting, it will also eat and
@@ -837,26 +940,28 @@ public class Tokenizer {
             // if we are not supposed to combine different delims - we still
             // need to check if we should combine delims of this kind
             if (delim.combineConsecutiveDelims()) {
-                StringBuffer buffer = new StringBuffer();
+                clearBuffer();
                 int index = 0;
                 while ((nextChar = getNextChar()) != EOF) {
 
                     // store it in case it must go back...
-                    buffer.append((char)nextChar);
+//                    buffer.append((char)nextChar);
+                    addToBuffer(nextChar);
                     if (nextChar != delim.getDelimiter().charAt(index)) {
                         break;
                     }
                     index = (index + 1) % delimLength;
                     if (index == 0) {
                         // we've read an entire delimiter - clear out the buffer
-                        buffer.setLength(0);
+                        clearBuffer();
                     }
                 }
 
-                for (int i = buffer.length(); i > 0;) {
-                    // write back what turned out not to be a delimiter
-                    putBackChar(buffer.charAt(--i));
-                }
+//                for (int i = buffer.length(); i > 0;) {
+//                    // write back what turned out not to be a delimiter
+//                    putBackChar(buffer.charAt(--i));
+//                }
+                pushBackBuffer();
             }
 
             assert m_lastDelimiter == null;
@@ -886,7 +991,7 @@ public class Tokenizer {
             // remember the ones seen, which should not be combined (of
             // same kind)
             Delimiter d = delim;
-            Vector<Delimiter> uncombDelimsRead = new Vector<Delimiter>();
+            m_uncombDelimsRead.clear();
             Delimiter returnDel = null; // the one that must be returned
 
             while (d != null) {
@@ -898,12 +1003,12 @@ public class Tokenizer {
                     returnDel = d;
                 }
                 if (!d.combineConsecutiveDelims()) {
-                    if (uncombDelimsRead.contains(d)) {
+                    if (m_uncombDelimsRead.contains(d)) {
                         // we've seen this already and shouldn't combine
                         // multiple of this kind. Done.
                         break;
                     }
-                    uncombDelimsRead.add(d);
+                    m_uncombDelimsRead.add(d);
                 }
                 // now we can swallow the delimiter
                 for (int i = 0; i < d.getDelimiter().length(); i++) {
@@ -1166,6 +1271,7 @@ public class Tokenizer {
         m_quotePatterns.clear();
         m_commentPatterns.clear();
         m_whiteSpaces.clear();
+        m_whiteSpaceSet.clear();
 
         // Fill our own data structures for comment, quotes, delimiters and
         // line contin. char. Don't forget to set the character type
@@ -1176,23 +1282,28 @@ public class Tokenizer {
             char c = comment.getFirstCharOfBegin();
             m_charType[c] |= COMMENT;
         }
+        fillCommentPatternStrings();
         for (Delimiter delim : ftSettings.getAllDelimiters()) {
             assert delim != null;
             m_delimPatterns.add(delim);
             char c = delim.getFirstChar();
             m_charType[c] |= DELIM;
         }
+        fillDelimiterPatternStrings();
         for (Quote quote : ftSettings.getAllQuotes()) {
             assert quote != null;
             m_quotePatterns.add(quote);
             char c = quote.getFirstCharOfLeft();
             m_charType[c] |= QUOTE;
         }
+        fillQuotePatternStrings();
+        m_whiteSpaceSet.clear();
         for (String ws : ftSettings.getAllWhiteSpaces()) {
             assert ws != null;
             assert ws.length() == 1;
             m_whiteSpaces.add(ws);
             m_charType[ws.charAt(0)] |= WSCHAR;
+            m_whiteSpaceSet.add(ws.charAt(0));
         }
         // finally: the line continuation character.
         String lcc = ftSettings.getLineContinuationCharacter();
@@ -1218,13 +1329,13 @@ public class Tokenizer {
         TokenizerSettings result = new TokenizerSettings();
 
         //add all currently set quote patterns
-        result.setQuotes(m_quotePatterns);
+        result.setQuotes(new Vector<>(m_quotePatterns));
         // add all comments
-        result.setComments(m_commentPatterns);
+        result.setComments(new Vector<>(m_commentPatterns));
         // add all delimiter patterns
-        result.setDelimiters(m_delimPatterns);
+        result.setDelimiters(new Vector<>(m_delimPatterns));
         // add user defined whitespaces
-        result.setWhiteSpaces(m_whiteSpaces);
+        result.setWhiteSpaces(new Vector<>(m_whiteSpaces));
 
         int lcc = getLineContChar(); // less than zero if not set
         if (lcc >= 0) {
