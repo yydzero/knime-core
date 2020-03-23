@@ -116,13 +116,14 @@ public final class PortTypeRegistry {
         m_specSerializers.put(DataTableSpec.class, new DataTableSpec.Serializer());
 
         m_allPortTypes.put(PortObject.class,
-            new PortType(PortObject.class, false, "Generic Port", PortType.DEFAULT_COLOR, false));
+            new PortType(PortObject.class, PortObjectSpec.class, false, "Generic Port", PortType.DEFAULT_COLOR, false));
         m_allOptionalPortTypes.put(PortObject.class,
-            new PortType(PortObject.class, true, "Generic Port", PortType.DEFAULT_COLOR, false));
+            new PortType(PortObject.class, PortObjectSpec.class, true, "Generic Port", PortType.DEFAULT_COLOR, false));
 
-        m_allPortTypes.put(BufferedDataTable.class, new PortType(BufferedDataTable.class, false, "Data", 0, false));
+        m_allPortTypes.put(BufferedDataTable.class,
+            new PortType(BufferedDataTable.class, DataTableSpec.class, false, "Data", 0, false));
         m_allOptionalPortTypes.put(BufferedDataTable.class,
-            new PortType(BufferedDataTable.class, true, "Data", 0, false));
+            new PortType(BufferedDataTable.class, DataTableSpec.class, true, "Data", 0, false));
     }
 
     private boolean m_allPortTypesRead;
@@ -159,11 +160,15 @@ public final class PortTypeRegistry {
             color = PortType.DEFAULT_COLOR;
         }
 
-        PortType pt = new PortType(getObjectClass(e.getAttribute("objectClass")).get(), false, e.getAttribute("name"),
-            color, Boolean.parseBoolean(e.getAttribute("hidden")));
+
+        Class<? extends PortObject> objectClass = getObjectClass(e.getAttribute("objectClass")).get();
+        Class<? extends PortObjectSpec> specClass =
+            getSpecClass(e.getAttribute("specClass")).orElse(PortType.getPortObjectSpecClass(objectClass));
+        PortType pt = new PortType(objectClass, specClass, false, e.getAttribute("name"), color,
+            Boolean.parseBoolean(e.getAttribute("hidden")));
         m_allPortTypes.put(pt.getPortObjectClass(), pt);
 
-        pt = new PortType(getObjectClass(e.getAttribute("objectClass")).get(), true, e.getAttribute("name"), color,
+        pt = new PortType(objectClass, specClass, true, e.getAttribute("name"), color,
             Boolean.parseBoolean(e.getAttribute("hidden")));
         m_allOptionalPortTypes.put(pt.getPortObjectClass(), pt);
     }
@@ -203,7 +208,8 @@ public final class PortTypeRegistry {
                     NodeLogger.getLogger(getClass()).coding("Port object class '" + portClass.getName() + "' is not "
                         + "registered at the extension point org.knime.core.PortType.");
                 }
-                pt = new PortType(portClass, isOptional, null, PortType.DEFAULT_COLOR, true);
+                pt = new PortType(portClass, PortType.getPortObjectSpecClass(portClass), isOptional, null,
+                    PortType.DEFAULT_COLOR, true);
                 map.put(portClass, pt);
             }
         }

@@ -93,9 +93,8 @@ public final class PortType {
      *             port object class (if available) instead
      */
     @Deprecated
-    public PortType(final Class<? extends PortObject> objectClass,
-            final boolean isOptional) {
-        this(objectClass, isOptional, null, DEFAULT_COLOR, true);
+    public PortType(final Class<? extends PortObject> objectClass, final boolean isOptional) {
+        this(objectClass, getPortObjectSpecClass(objectClass), isOptional, null, DEFAULT_COLOR, true);
     }
 
     /**
@@ -108,10 +107,10 @@ public final class PortType {
         this(objectClass, false);
     }
 
-    PortType(final Class<? extends PortObject> objectClass, final boolean isOptional, final String name, final int color,
-        final boolean isHidden) {
+    PortType(final Class<? extends PortObject> objectClass, final Class<? extends PortObjectSpec> specClass,
+        final boolean isOptional, final String name, final int color, final boolean isHidden) {
         m_objectClass = objectClass;
-        m_specClass = getPortObjectSpecClass(objectClass);
+        m_specClass = specClass;
         m_isOptional = isOptional;
         m_name = name != null ? name : objectClass.getSimpleName();
         m_color = color;
@@ -288,6 +287,7 @@ public final class PortType {
      * @param objectClass the port object class
      * @return the determined spec class, might be simply {@link PortObjectSpec}
      */
+    @Deprecated
     public static Class<? extends PortObjectSpec> getPortObjectSpecClass(
             final Class<? extends PortObject> objectClass) {
         Method m;
