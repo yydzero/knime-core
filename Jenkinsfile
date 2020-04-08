@@ -1,7 +1,7 @@
 #!groovy
 def BN = BRANCH_NAME == "master" || BRANCH_NAME.startsWith("releases/") ? BRANCH_NAME : "master"
 
-library "knime-pipeline@$BN"
+library "knime-pipeline@todo/DEVOPS-397-add-owasp-dependency-check-to"
 
 properties([
 	// provide a list of upstream jobs which should trigger a rebuild of this job
