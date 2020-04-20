@@ -58,6 +58,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.apache.xmlbeans.XmlCursor;
 import org.apache.xmlbeans.XmlError;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
@@ -425,7 +426,9 @@ public final class NodeDescription41Proxy extends NodeDescription {
             final long size = dynPortPair.getSecond();
             for (int i = 0; i < size; i++) {
                 final Port port = createPort.apply(ports);
-                port.newCursor().setTextValue(dynPort.newCursor().getTextValue());
+                final XmlCursor cursor = port.newCursor();
+                cursor.setTextValue(dynPort.newCursor().getTextValue());
+                cursor.dispose();
                 port.addI(DYNAMIC_PORT_SUFFIX);
                 port.setIndex(BigInteger.valueOf(offset++));
                 port.setName(dynPort.getName());

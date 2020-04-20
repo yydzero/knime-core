@@ -54,27 +54,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import org.apache.xmlbeans.XmlCursor;
 import org.apache.xmlbeans.XmlError;
 import org.apache.xmlbeans.XmlException;
+import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlOptions;
 import org.knime.core.node.NodeFactory.NodeType;
 import org.knime.core.node.context.ports.ExchangeablePortGroup;
 import org.knime.core.node.context.ports.ExtendablePortGroup;
 import org.knime.core.node.context.ports.ModifiablePortsConfiguration;
 import org.knime.core.node.port.PortType;
-import org.knime.node.v42.DynInOutPort;
-import org.knime.node.v42.DynInPort;
-import org.knime.node.v42.DynOutPort;
-import org.knime.node.v42.ExInOutPort;
-import org.knime.node.v42.ExInPort;
-import org.knime.node.v42.ExOutPort;
+import org.knime.core.node.port.flowvariable.FlowVariablePortObject;
+import org.knime.node.v42.DynPortGrp;
+import org.knime.node.v42.ExPortGrp;
 import org.knime.node.v42.InPort;
 import org.knime.node.v42.KnimeNode;
 import org.knime.node.v42.KnimeNodeDocument;
 import org.knime.node.v42.ModifiablePort;
+import org.knime.node.v42.ModifiablePortGrp;
 import org.knime.node.v42.OutPort;
 import org.knime.node.v42.Port;
 import org.knime.node.v42.Ports;
+import org.knime.node.v42.TypedModifiablePort;
 import org.knime.node.v42.View;
 import org.knime.node.v42.Views;
 import org.w3c.dom.Document;
@@ -119,6 +120,7 @@ public final class NodeDescription42Proxy extends NodeDescription {
         m_document = KnimeNodeDocument.Factory.parse(doc.getDocumentElement(), OPTIONS);
         setIsDeprecated(m_document.getKnimeNode().getDeprecated());
         validate();
+        addPortDescriptions(null);
     }
 
     /**
@@ -149,7 +151,7 @@ public final class NodeDescription42Proxy extends NodeDescription {
             validate();
         }
         clearPorts();
-        adaptPortsDescription(portsConfiguration);
+        addPortDescriptions(portsConfiguration);
     }
 
     /**
@@ -352,60 +354,120 @@ public final class NodeDescription42Proxy extends NodeDescription {
         ports.getOutPortList().clear();
     }
 
-    private void adaptPortsDescription(final ModifiablePortsConfiguration portsConfiguration) {
+    private void addPortDescriptions(final ModifiablePortsConfiguration portsConfiguration) {
         final KnimeNode knimeNode = m_document.getKnimeNode();
         final Ports ports = knimeNode.getPorts();
-        // create inports
-        addPorts(portsConfiguration, ports, true, Ports::getFixInPortList, Ports::addNewInPort);
+        // create input port descriptions
+        // TODO: fix
+        addPorts(portsConfiguration, ports, true, Ports::getFixInPortList, Ports::addNewInPort,
+            portsConfiguration != null ? portsConfiguration.getInputPorts() : null);
+        // create output port descriptions
+        addPorts(portsConfiguration, ports, false, Ports::getFixOutPortList, Ports::addNewOutPort,
+            portsConfiguration != null ? portsConfiguration.getOutputPorts() : null);
     }
 
     private static void addPorts(final ModifiablePortsConfiguration portsConfiguration, final Ports ports,
-        final boolean isInPort, final Function<Ports, List<? extends Port>> getFixPorts,
-        final Function<Ports, Port> createStdPort) {
+        final boolean addInPorts, final Function<Ports, List<? extends Port>> getFixPorts,
+        final Function<Ports, Port> createStdPort, final PortType[] portTypes) {
         List<AdapterPort> adapterPorts = new ArrayList<>();
         for (final Port p : getFixPorts.apply(ports)) {
             adapterPorts.add(new AdapterPort(p));
         }
         if (portsConfiguration != null) {
             final Map<String, ExtendablePortGroup> extendablePorts = portsConfiguration.getExtendablePorts();
-            for (final DynInPort dynPort : ports.getDynInPortList()) {
+            for (final DynPortGrp dynPort : ports.getDynPortGrpList()) {
                 final PortType[] configuredPorts =
                     extendablePorts.get(dynPort.getGroupIdentifier()).getConfiguredPorts();
-                if (configuredPorts.length > 0) {
+                if (configuredPorts.length > 0 && accept(addInPorts, dynPort)) {
                     for (int i = 0; i < configuredPorts.length; i++) {
-                        adapterPorts.add(new AdapterPort(dynPort, configuredPorts[i]));
+                        adapterPorts.add(new AdapterPort(dynPort, configuredPorts[i], addInPorts));
                     }
                 }
             }
             final Map<String, ExchangeablePortGroup> exchangeablePorts = portsConfiguration.getExchangeablePorts();
-            for (final ExInPort extPort : ports.getExInPortList()) {
-                adapterPorts.add(new AdapterPort(extPort,
-                    exchangeablePorts.get(extPort.getGroupIdentifier()).getSelectedPortType()));
+            for (final ExPortGrp extPort : ports.getExPortGrpList()) {
+                if (accept(addInPorts, extPort)) {
+                    adapterPorts.add(new AdapterPort(extPort,
+                        exchangeablePorts.get(extPort.getGroupIdentifier()).getSelectedPortType(), addInPorts));
+                }
             }
         }
-        createStdPorts(adapterPorts, ports, createStdPort);
+        createStdPorts(adapterPorts, ports, createStdPort, portTypes);
+    }
+
+    private static boolean accept(final boolean addInPorts, final ModifiablePortGrp extPort) {
+        return addInPorts ? isInPort(extPort) : isOutPort(extPort);
+    }
+
+    private static boolean isInPort(final ModifiablePortGrp p) {
+        return p.sizeOfTypedModInPortArray() > 0 || p.isSetDefaultInPort();
+    }
+
+    private static boolean isOutPort(final ModifiablePortGrp p) {
+        return p.sizeOfTypedModOutPortArray() > 0 || p.isSetDefaultOutPort();
     }
 
     private static void createStdPorts(final List<AdapterPort> adapterPorts, final Ports ports,
-        final Function<Ports, Port> createStdPort) {
+        final Function<Ports, Port> createStdPort, final PortType[] portTypes) {
         Collections.sort(adapterPorts);
         int idx = 0;
         for (final AdapterPort p : adapterPorts) {
             Port port = createStdPort.apply(ports);
-            port.newCursor().setTextValue(p.m_desc);
-            port.addI(p.m_suffix);
+            port.set(p.getXmlObject());
+            addPortColor(port, portTypes != null ? portTypes[idx] : BufferedDataTable.TYPE, p.getSuffix());
             port.setIndex(BigInteger.valueOf(idx++));
-            port.setName(p.m_name);
+            port.setName(p.getName());
         }
+    }
+
+    private static void addPortColor(final Port port, final PortType portType, final String suffix) {
+        XmlCursor cursor = port.newCursor();
+        cursor.toNextToken();
+        while (cursor.isAnyAttr()) {
+            cursor.toNextToken();
+        }
+        cursor.beginElement("svg");
+        cursor.insertAttributeWithValue("height", "9");
+        cursor.insertAttributeWithValue("width", "10");
+        drawElement(cursor, portType);
+        cursor.toEndToken();
+        cursor.toNextToken();
+        cursor.insertElementWithText("i", "Type: " + portType.getName());
+        if (!suffix.isEmpty()) {
+            cursor.insertElementWithText("b", suffix);
+        }
+        cursor.insertElement("br");
+        cursor.dispose();
+    }
+
+    private static void drawElement(final XmlCursor newCursor, final PortType portType) {
+        if (portType.equals(BufferedDataTable.TYPE)) {
+            newCursor.beginElement("polygon");
+            newCursor.insertAttributeWithValue("points", "0,0,0,10,8,5");
+            newCursor.insertAttributeWithValue("style", "fill:black,stroke:black,stroke-width:1");
+        } else if (portType.equals(FlowVariablePortObject.TYPE)) {
+            newCursor.beginElement("circle");
+            newCursor.insertAttributeWithValue("cx", "5");
+            newCursor.insertAttributeWithValue("cy", "5");
+            newCursor.insertAttributeWithValue("r", "4");
+            newCursor.insertAttributeWithValue("stroke", "red");
+            newCursor.insertAttributeWithValue("stroke-width", "1");
+            newCursor.insertAttributeWithValue("fill", "red");
+        } else {
+            newCursor.beginElement("polygon");
+            newCursor.insertAttributeWithValue("points", "0,0,0,10,10,10,10,0");
+            newCursor.insertAttributeWithValue("stroke-width", "1");
+            newCursor.insertAttributeWithValue("fill", "#" + Integer.toHexString(portType.getColor()));
+            newCursor.insertAttributeWithValue("stroke", "#" + Integer.toHexString(portType.getColor()));
+        }
+        newCursor.toEndToken();
+        newCursor.toNextToken();
     }
 
     private static class AdapterPort implements Comparable<AdapterPort> {
 
         /** The dynamic port suffix. */
         private static final String DYNAMIC_PORT_SUFFIX = " (dynamic)";
-
-        /** Empty suffix for fixed ports. */
-        private static final String EMPTY_SUFFIX = "";
 
         private static final String EXCHANGEABLE_PORT_SUFFIX = " (exchangeable)";
 
@@ -417,53 +479,55 @@ public final class NodeDescription42Proxy extends NodeDescription {
 
         private final String m_suffix;
 
-        private AdapterPort(final List<? extends ModifiablePort> pList, final PortType pType, final BigInteger idx,
-            final String grpID, final String suffix) {
+        private final XmlObject m_xmlObj;
+
+        AdapterPort(final Port p) {
+            m_pos = p.getIndex().intValue();
+            m_name = p.getName();
+            m_desc = p.newCursor().getTextValue();
+            m_suffix = "";
+            m_xmlObj = p.copy();
+        }
+
+        private AdapterPort(final List<? extends TypedModifiablePort> pList, final ModifiablePort defPort,
+            final PortType pType, final BigInteger idx, final String suffix) {
             final ModifiablePort port = pList.stream()//
                 .filter(modPort -> pType.getName().equals(modPort.getPortType()))//
                 .findFirst()//
-                .orElseThrow(() -> new IllegalArgumentException(grpID + " does not specify all supported port types."));
+                .map(modPort -> (ModifiablePort)modPort)//
+                .orElse(defPort);
             m_pos = idx.intValue();
             m_name = port.getName();
             m_desc = port.newCursor().getTextValue();
             m_suffix = suffix;
+            m_xmlObj = port.copy();
         }
 
-        AdapterPort(final DynInPort p, final PortType pType) {
-            this(p.getModInPortList(), pType, p.getInsertBefore(), p.getGroupIdentifier(), DYNAMIC_PORT_SUFFIX);
+        AdapterPort(final DynPortGrp p, final PortType pType, final boolean isInPort) {
+            this(isInPort ? p.getTypedModInPortList() : p.getTypedModOutPortList(),
+                isInPort ? p.getDefaultInPort() : p.getDefaultOutPort(), pType, p.getInsertBefore(),
+                DYNAMIC_PORT_SUFFIX);
         }
 
-        AdapterPort(final DynOutPort p, final PortType pType) {
-            this(p.getModOutPortList(), pType, p.getInsertBefore(), p.getGroupIdentifier(), DYNAMIC_PORT_SUFFIX);
+        AdapterPort(final ExPortGrp p, final PortType pType, final boolean isInPort) {
+            this(isInPort ? p.getTypedModInPortList() : p.getTypedModOutPortList(),
+                isInPort ? p.getDefaultInPort() : p.getDefaultOutPort(), pType, p.getIndex(), EXCHANGEABLE_PORT_SUFFIX);
         }
 
-        AdapterPort(final DynInOutPort p, final PortType pType, final boolean asInPort) {
-            this(asInPort ? p.getModInPortList() : p.getModOutPortList(), pType, p.getInsertBefore(),
-                p.getGroupIdentifier(), DYNAMIC_PORT_SUFFIX);
+        String getDescription() {
+            return m_desc;
         }
 
-        AdapterPort(final ExInPort p, final PortType pType) {
-            this(p.getModInPortList(), pType, p.getIndex(), p.getGroupIdentifier(), EXCHANGEABLE_PORT_SUFFIX);
+        String getName() {
+            return m_name;
         }
 
-        AdapterPort(final ExOutPort p, final PortType pType) {
-            this(p.getModOutPortList(), pType, p.getIndex(), p.getGroupIdentifier(), EXCHANGEABLE_PORT_SUFFIX);
+        String getSuffix() {
+            return m_suffix;
         }
 
-        AdapterPort(final ExInOutPort p, final PortType pType, final boolean asInPort) {
-            this(asInPort ? p.getModInPortList() : p.getModOutPortList(), pType, p.getIndex(), p.getGroupIdentifier(),
-                EXCHANGEABLE_PORT_SUFFIX);
-
-        }
-
-        /**
-         * @param p
-         */
-        public AdapterPort(final Port p) {
-            m_pos = p.getIndex().intValue();
-            m_name = p.getName();
-            m_desc = p.newCursor().getTextValue();
-            m_suffix = EMPTY_SUFFIX;
+        XmlObject getXmlObject() {
+            return m_xmlObj;
         }
 
         @Override

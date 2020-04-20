@@ -173,9 +173,9 @@ class NodeDescriptionParser {
                 throw new XmlException("Unsupported document type for node description of " + factoryClass.getName()
                     + ": " + publicId);
             }
-//        } else if (namespaceUri.equals(org.knime.node.v42.KnimeNodeDocument.type.getContentModel().getName()
-//            .getNamespaceURI())) {
-//            return new NodeDescription42Proxy(doc);
+        } else if (namespaceUri.equals(org.knime.node.v42.KnimeNodeDocument.type.getContentModel().getName()
+            .getNamespaceURI())) {
+            return new NodeDescription42Proxy(doc);
         } else if (namespaceUri.equals(org.knime.node.v41.KnimeNodeDocument.type.getContentModel().getName()
             .getNamespaceURI())) {
             return new NodeDescription41Proxy(doc);

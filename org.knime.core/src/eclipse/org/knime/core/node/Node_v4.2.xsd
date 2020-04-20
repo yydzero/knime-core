@@ -135,13 +135,9 @@
   <xs:complexType name="Ports">
     <xs:sequence>
         <xs:element minOccurs="0" maxOccurs="unbounded" name="fixInPort" type="FixInPort" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" name="dynInPort" type="DynInPort" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" name="exInPort" type="ExInPort" />
         <xs:element minOccurs="0" maxOccurs="unbounded" name="fixOutPort" type="FixOutPort" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" name="dynOutPort" type="DynOutPort" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" name="exOutPort" type="ExOutPort" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" name="dynInOutPort" type="DynInOutPort" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" name="exInOutPort" type="ExInOutPort" />
+        <xs:element minOccurs="0" maxOccurs="unbounded" name="dynPortGrp" type="DynPortGrp" />
+        <xs:element minOccurs="0" maxOccurs="unbounded" name="exPortGrp" type="ExPortGrp" />
         <xs:element minOccurs="0" maxOccurs="unbounded" name="inPort" type="InPort" />
         <xs:element minOccurs="0" maxOccurs="unbounded" name="outPort" type="OutPort" />
     </xs:sequence>
@@ -186,117 +182,79 @@
 
   <!-- Modifiable Ports -->
   
- <xs:complexType name="ModifiablePort" mixed="true">
+ <xs:complexType name="ModifiablePort">
   	<xs:complexContent>
   	  <xs:extension base="ExtendedDescription">
-  	  	<xs:attribute name="portType" type="nonEmptyString" use="required" />
         <xs:attribute name="name" type="nonEmptyString" use="required" />
   	  </xs:extension>  	  
     </xs:complexContent>
   </xs:complexType>
   
- <xs:complexType name="ModifiableInPort" mixed="true">
+ <xs:complexType name="TypedModifiablePort">
+  	<xs:complexContent>
+  	  <xs:extension base="ModifiablePort">
+  	  	<xs:attribute name="portType" type="nonEmptyString" use="required" />
+  	  </xs:extension>  	  
+    </xs:complexContent>
+  </xs:complexType>
+  
+ <xs:complexType name="ModifiableInPort">
   	<xs:complexContent>
   	  <xs:extension base="ModifiablePort" />
     </xs:complexContent>
   </xs:complexType>
   
-   <xs:complexType name="ModifiableOutPort" mixed="true">
+   <xs:complexType name="ModifiableOutPort">
   	<xs:complexContent>
   	  <xs:extension base="ModifiablePort" />
     </xs:complexContent>
   </xs:complexType>
   
- <xs:complexType name="ModifiablePortGrp" mixed="true">
- 
+ <xs:complexType name="TypedModifiableInPort">
+  	<xs:complexContent>
+  	  <xs:extension base="TypedModifiablePort" />
+    </xs:complexContent>
+  </xs:complexType>
+  
+  <xs:complexType name="TypedModifiableOutPort">
+  	<xs:complexContent>
+  	  <xs:extension base="TypedModifiablePort" />
+    </xs:complexContent>
+  </xs:complexType>
+  
+ <xs:complexType name="ModifiablePortGrp">
+     <xs:sequence>
+       <xs:element name="description" type="ExtendedDescription" />
+       <xs:element name="defaultInPort" type="ModifiableInPort" minOccurs="0" maxOccurs="1" />
+       <xs:element name="defaultOutPort" type="ModifiableOutPort" minOccurs="0" maxOccurs="1" />
+       <xs:choice maxOccurs="unbounded">
+         <xs:element name="typedModInPort" type="TypedModifiableInPort" />
+         <xs:element name="typedModOutPort" type="TypedModifiableOutPort" />
+       </xs:choice>
+     </xs:sequence>
+     <xs:attribute name="group-identifier" type="nonEmptyString" use="required" />
  </xs:complexType>   
   
   
   <!-- Dynamic ports -->  
 
-  <xs:complexType name="DynPortGrp" mixed="true">
+  <xs:complexType name="DynPortGrp">
   	<xs:complexContent>
-  	  <xs:extension base="ExtendedDescription">
+  	  <xs:extension base="ModifiablePortGrp">
   	    <xs:attribute name="insert-before" type="xs:nonNegativeInteger" use="required" />
-        <xs:attribute name="group-identifier" type="nonEmptyString" use="required" />
   	  </xs:extension>
     </xs:complexContent>
   </xs:complexType>
-  
-  <xs:complexType name="DynInPort" mixed="true">
-  	<xs:complexContent>
-  	  <xs:extension base="DynPortGrp">
-  	    <xs:sequence>
-          <xs:element minOccurs="1" maxOccurs="unbounded" name="modInPort" type="ModifiableInPort" />
-        </xs:sequence>
-  	  </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>
-
-  <xs:complexType name="DynOutPort" mixed="true">
-  	<xs:complexContent>
-  	  <xs:extension base="DynPortGrp">
-  	    <xs:sequence>
-          <xs:element minOccurs="1" maxOccurs="unbounded" name="modOutPort" type="ModifiableOutPort" />
-        </xs:sequence>
-  	  </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>
-  
-  <xs:complexType name="DynInOutPort" mixed="true">
-  	<xs:complexContent>
-  	  <xs:extension base="DynPortGrp">
-  	    <xs:sequence>
-          <xs:element minOccurs="1" maxOccurs="unbounded" name="modInPort" type="ModifiableInPort" />
-          <xs:element minOccurs="1" maxOccurs="unbounded" name="modOutPort" type="ModifiableOutPort" />
-        </xs:sequence>
-  	  </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>
-  
-  
   
   <!-- Exchangeable ports -->  
 
-  <xs:complexType name="ExPortGrp" mixed="true">
+  <xs:complexType name="ExPortGrp">
   	<xs:complexContent>
-  	  	  <xs:extension base="ExtendedDescription">
-  	  <xs:attribute name="index" type="xs:nonNegativeInteger" use="required" />
-      <xs:attribute name="group-identifier" type="nonEmptyString" use="required" />
+  	  <xs:extension base="ModifiablePortGrp">
+  	    <xs:attribute name="index" type="xs:nonNegativeInteger" use="required" />
   	  </xs:extension>
     </xs:complexContent>
   </xs:complexType>
-
-  <xs:complexType name="ExInPort" mixed="true">
-  	<xs:complexContent>
-  	  <xs:extension base="ExPortGrp">
-  	    <xs:sequence>
-          <xs:element minOccurs="1" maxOccurs="unbounded" name="modInPort" type="ModifiableInPort" />
-        </xs:sequence>
-  	  </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>
-
-  <xs:complexType name="ExOutPort" mixed="true">
-  	<xs:complexContent>
-  	  <xs:extension base="ExPortGrp">
-  	    <xs:sequence>
-          <xs:element minOccurs="1" maxOccurs="unbounded" name="modOutPort" type="ModifiableOutPort" />
-        </xs:sequence>
-  	  </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>
-  
-  <xs:complexType name="ExInOutPort" mixed="true">
-  	<xs:complexContent>
-  	  <xs:extension base="ExPortGrp">
-  	    <xs:sequence>
-          <xs:element minOccurs="1" maxOccurs="unbounded" name="modInPort" type="ModifiableInPort" />
-          <xs:element minOccurs="1" maxOccurs="unbounded" name="modOutPort" type="ModifiableOutPort" />
-        </xs:sequence>
-  	  </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>  
 
 
   <xs:complexType name="Views">
@@ -456,7 +414,25 @@
       <xs:element ref="sub" />
     </xs:choice>
   </xs:complexType>
+
+  <xs:complexType name="CircleType">
+  	  <xs:attribute name="cx" type="xs:nonNegativeInteger" use="required"/>
+  	    	  <xs:attribute name="cy" type="xs:nonNegativeInteger" use="required"/>
+  	  <xs:attribute name="r" type="xs:nonNegativeInteger" use="required"/>
+  	    	  <xs:attribute name="stroke" type="xs:string" />
+  	  <xs:attribute name="stroke-width" type="xs:nonNegativeInteger" use="required"/>
+  	    	    	  <xs:attribute name="fill" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="SvgType">
+    <xs:sequence>
+  	  <xs:element name="circle" type="CircleType" />
+      </xs:sequence>
+  	  <xs:attribute name="width" type="xs:nonNegativeInteger" use="required"/>
+  	  <xs:attribute name="height" type="xs:nonNegativeInteger" use="required"/>
+  </xs:complexType>
   
+    
   <xs:complexType name="ExtendedDescription" mixed="true">
     <xs:choice minOccurs="0" maxOccurs="unbounded">
       <xs:element ref="br" />
@@ -472,8 +448,11 @@
       <xs:element ref="p" />
       <xs:element ref="hr" />
       <xs:element ref="pre" />
+      <xs:element name="svg" type="SvgType" />
     </xs:choice>
   </xs:complexType>
+  
+
   
   <xs:complexType name="Intro" mixed="true">
     <xs:choice minOccurs="0" maxOccurs="unbounded">
