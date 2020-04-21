@@ -116,6 +116,7 @@ public final class NodeFactoryExtension {
     public boolean isDeprecated() {
         if (m_isDeprecated == null) {
             boolean isDeprecated = Boolean.parseBoolean(m_configurationElement.getAttribute("deprecated"));
+/*
             if (!isDeprecated) {
                 try {
                     isDeprecated = createFactory().isDeprecated();
@@ -129,6 +130,7 @@ public final class NodeFactoryExtension {
                         NodeFactory.class.getSimpleName(), getFactoryClassName(), getPlugInSymbolicName());
                 }
             }
+*/
             m_isDeprecated = Boolean.valueOf(isDeprecated);
         }
         return m_isDeprecated.booleanValue();
