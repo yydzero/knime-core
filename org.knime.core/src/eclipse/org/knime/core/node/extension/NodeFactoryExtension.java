@@ -55,7 +55,6 @@ import org.eclipse.core.runtime.Platform;
 import org.knime.core.node.DynamicNodeFactory;
 import org.knime.core.node.Node;
 import org.knime.core.node.NodeFactory;
-import org.knime.core.node.NodeLogger;
 import org.knime.core.node.NodeModel;
 import org.knime.core.node.util.CheckUtils;
 import org.osgi.framework.Bundle;
@@ -73,20 +72,11 @@ import org.osgi.framework.Bundle;
  */
 public final class NodeFactoryExtension {
 
-    private static final NodeLogger LOGGER = NodeLogger.getLogger(NodeFactoryExtension.class);
-
     private static final String FACTORY_CLASS_ATTRIBUTE = "factory-class";
 
     private final String m_factoryClassName;
 
     private final IConfigurationElement m_configurationElement;
-
-    /**
-     * null = not yet read
-     * true = declared so either in ext point or in NodeFactory.xml
-     * false = ...
-     */
-    private Boolean m_isDeprecated;
 
     /**
      * @param factoryClassName
@@ -114,24 +104,7 @@ public final class NodeFactoryExtension {
 
     /** @return the "deprecated" field in the extension point. */
     public boolean isDeprecated() {
-        if (m_isDeprecated == null) {
-            boolean isDeprecated = Boolean.parseBoolean(m_configurationElement.getAttribute("deprecated"));
-            if (!isDeprecated) {
-                try {
-                    isDeprecated = createFactory().isDeprecated();
-                } catch (InvalidNodeFactoryExtensionException e) {
-                    // ignore -- someone will call #createFactory later and get the same error
-                }
-                if (isDeprecated) {
-                    LOGGER.codingWithFormat(
-                        "%s \"%s\" is declared 'deprecated' in its node description but not in "
-                            + "the extension point contribution (plug-in \"%s\")",
-                        NodeFactory.class.getSimpleName(), getFactoryClassName(), getPlugInSymbolicName());
-                }
-            }
-            m_isDeprecated = Boolean.valueOf(isDeprecated);
-        }
-        return m_isDeprecated.booleanValue();
+        return Boolean.parseBoolean(m_configurationElement.getAttribute("deprecated"));
     }
 
     /** @return the "hidden" field in the extension point. */
