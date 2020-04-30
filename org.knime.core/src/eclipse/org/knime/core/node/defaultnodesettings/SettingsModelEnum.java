@@ -114,10 +114,10 @@ public class SettingsModelEnum<T extends Enum<T>> extends SettingsModel {
     @Override
     protected void loadSettingsForModel(final NodeSettingsRO settings) throws InvalidSettingsException {
         // use the default value, if the key is not present in the settings
-        int ordinal = settings.getInt(m_configKey, m_defaultValue.ordinal());
+        String name = settings.getString(m_configKey, m_defaultValue.name());
 
         // convert back to enum instance
-        T value = m_defaultValue.getDeclaringClass().getEnumConstants()[ordinal];
+        T value = Enum.valueOf(m_defaultValue.getDeclaringClass(), name);
 
         setValue(value);
     }
@@ -141,7 +141,7 @@ public class SettingsModelEnum<T extends Enum<T>> extends SettingsModel {
     @Override
     protected void saveSettingsForModel(final NodeSettingsWO settings) {
         // store only the ordinal of the enum instance
-        settings.addInt(m_configKey, m_value.ordinal());
+        settings.addString(m_configKey, m_value.name());
     }
 
     /**
@@ -160,21 +160,13 @@ public class SettingsModelEnum<T extends Enum<T>> extends SettingsModel {
     protected void validateSettingsForModel(final NodeSettingsRO settings)
         throws InvalidSettingsException {
 
-        int ordinal = settings.getInt(m_configKey, m_defaultValue.ordinal());
+        String name = settings.getString(m_configKey, m_defaultValue.name());
 
-        if (ordinal < 0) {
-            throw new InvalidSettingsException(String.format(
-                "Invalid value for enumeration setting %s. " + "Its ordinal value must not be negative, but is %s.",
-                m_configKey, ordinal));
+        try {
+            Enum.valueOf(m_defaultValue.getDeclaringClass(), name);
+        } catch (IllegalArgumentException ex) {
+            throw new InvalidSettingsException(String.format("Invalid value for enumeration setting %s.", name));
         }
-
-        int maxAllowedOrdinal = m_defaultValue.getDeclaringClass().getEnumConstants().length - 1;
-        if (ordinal > maxAllowedOrdinal) {
-            throw new InvalidSettingsException(String.format(
-                "Invalid value for enumeration setting %s. Its ordinal value must be ≤ %s, but is %s.",
-                m_configKey, maxAllowedOrdinal, ordinal));
-        }
-
     }
 
     /**
@@ -193,7 +185,7 @@ public class SettingsModelEnum<T extends Enum<T>> extends SettingsModel {
     }
 
     /**
-     * @return the stored long value
+     * @return the stored value
      */
     public T getValue() {
         return m_value;

@@ -149,7 +149,7 @@ public class SettingsModelEnumTest {
         // load
         model.loadSettingsForModel(nodeSettings);
         // check that update survived
-        assertEquals(model.getValue(), Horizon.EAST);
+        assertEquals(Horizon.EAST, model.getValue());
 
     }
 
