@@ -49,19 +49,28 @@
 package org.knime.core.data.container.fast;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.knime.core.data.DataCell;
+import org.knime.core.data.DataColumnDomain;
+import org.knime.core.data.DataColumnDomainCreator;
 import org.knime.core.data.DataTableSpec;
 import org.knime.core.data.DataType;
 import org.knime.core.data.def.DoubleCell;
 import org.knime.core.data.def.IntCell;
 import org.knime.core.data.def.StringCell;
 import org.knime.core.data.table.column.ColumnType;
+import org.knime.core.data.table.domain.Domain;
+import org.knime.core.data.table.preproc.PreProcTableStore;
 import org.knime.core.data.table.row.RowReadCursor;
 import org.knime.core.data.table.row.RowWriteCursor;
+import org.knime.core.data.table.type.DoubleDomain;
 import org.knime.core.data.table.type.DoubleType;
+import org.knime.core.data.table.type.IntDomain;
 import org.knime.core.data.table.type.IntType;
+import org.knime.core.data.table.type.StringDomain;
 import org.knime.core.data.table.type.StringType;
 import org.knime.core.data.table.value.DoubleReadValue;
 import org.knime.core.data.table.value.DoubleWriteValue;
@@ -152,6 +161,18 @@ class AdapterRegistry {
                 }
                 return producers;
             }
+
+            @Override
+            public DataColumnDomain[] translate(final PreProcTableStore store) {
+                final DataColumnDomain[] domains = new DataColumnDomain[adapters.length];
+                for (int i = 0; i < domains.length; i++) {
+                    final Domain domain = store.getResultDomain(i);
+                    if (domain != null) {
+                        domains[i] = adapters[i].translate(domain);
+                    }
+                }
+                return domains;
+            }
         };
     }
 
@@ -167,12 +188,15 @@ class AdapterRegistry {
 
         boolean isRowKey();
 
+        DataColumnDomain[] translate(PreProcTableStore store);
     }
 
     // TODO introduce version?
     static interface DataCellAdapter<R extends ReadValue, W extends WriteValue> {
 
         DataCellConsumer createConsumer(W access);
+
+        DataColumnDomain translate(Domain domain);
 
         DataCellProducer createProducer(R access);
 
@@ -230,6 +254,20 @@ class AdapterRegistry {
                 return new IntCell(m_access.getInt());
             }
         }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public DataColumnDomain translate(final Domain domain) {
+            if (!(domain instanceof IntDomain)) {
+                return null;
+            } else {
+                final IntDomain cast = (IntDomain)domain;
+                return new DataColumnDomainCreator(new IntCell(cast.getMinimum()), new IntCell(cast.getMaximum()))
+                    .createDomain();
+            }
+        }
     }
 
     static class StringAdapter implements DataCellAdapter<StringReadValue, StringWriteValue> {
@@ -284,6 +322,23 @@ class AdapterRegistry {
                 }
             }
         }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public DataColumnDomain translate(final Domain domain) {
+            if (!(domain instanceof StringDomain)) {
+                return null;
+            } else {
+                final StringDomain cast = (StringDomain)domain;
+                final Set<StringCell> values = new HashSet<StringCell>();
+                for (String value : cast.getValues()) {
+                    values.add(new StringCell(value));
+                }
+                return new DataColumnDomainCreator(values).createDomain();
+            }
+        }
     }
 
     static class DoubleAdapter implements DataCellAdapter<DoubleReadValue, DoubleWriteValue> {
@@ -336,6 +391,20 @@ class AdapterRegistry {
                 } else {
                     return new DoubleCell(m_access.getDouble());
                 }
+            }
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public DataColumnDomain translate(final Domain domain) {
+            if (!(domain instanceof DoubleDomain)) {
+                return null;
+            } else {
+                final DoubleDomain cast = (DoubleDomain)domain;
+                return new DataColumnDomainCreator(new DoubleCell(cast.getMinimum()), new DoubleCell(cast.getMaximum()))
+                    .createDomain();
             }
         }
     }

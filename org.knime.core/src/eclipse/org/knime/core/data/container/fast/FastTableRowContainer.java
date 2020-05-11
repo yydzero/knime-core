@@ -51,6 +51,7 @@ package org.knime.core.data.container.fast;
 import java.io.File;
 import java.io.IOException;
 
+import org.knime.core.data.DataColumnDomain;
 import org.knime.core.data.DataColumnSpec;
 import org.knime.core.data.DataColumnSpecCreator;
 import org.knime.core.data.DataRow;
@@ -148,10 +149,12 @@ class FastTableRowContainer implements RowContainer {
                 throw new IllegalStateException(ex);
             }
             final DataColumnSpec[] colSpecs = new DataColumnSpec[m_spec.getNumColumns()];
+            final DataColumnDomain[] domains = m_adapter.translate(m_store);
             for (int i = 0; i < colSpecs.length; i++) {
                 final DataColumnSpecCreator specCreator = new DataColumnSpecCreator(m_spec.getColumnSpec(i));
-                // TODO set domain for all enabled domains
-                //                specCreator.setDomain(null);
+                if (domains[i] != null) {
+                    specCreator.setDomain(domains[i]);
+                }
                 colSpecs[i] = specCreator.createSpec();
             }
             m_table = new TmpFastTable(m_tableId, m_spec, m_store, m_adapter, true);
