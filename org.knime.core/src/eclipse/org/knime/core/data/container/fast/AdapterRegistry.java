@@ -142,12 +142,24 @@ class AdapterRegistry {
             public boolean isRowKey() {
                 return isRowKey;
             }
+
+            @Override
+            public DataCellProducer[] createProducers(final RowReadCursor cursor, final int[] selectedIndices) {
+                final DataCellProducer[] producers = new DataCellProducer[selectedIndices.length];
+                for (int j = 0; j < selectedIndices.length; j++) {
+                    final int idx = selectedIndices[j];
+                    producers[j] = adapters[idx].createProducer(cursor.get(idx));
+                }
+                return producers;
+            }
         };
     }
 
     interface DataSpecAdapter {
 
         DataCellProducer[] createProducers(RowReadCursor cursor);
+
+        DataCellProducer[] createProducers(RowReadCursor cursor, int[] selectedIndices);
 
         DataCellConsumer[] createConsumers(RowWriteCursor cursor);
 

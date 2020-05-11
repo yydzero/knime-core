@@ -30,14 +30,17 @@ class PartialRowIterator extends CloseableRowIterator {
         final int[] selected) {
         m_cursor = table.newCursor();
         m_rowKeySupplier = isRowKey ? m_cursor.get(0) : null;
-        m_producers = adapter.createProducers(m_cursor);
+        // TODO use selected
+        m_producers = adapter.createProducers(m_cursor, selected);
         m_numCells = (int)table.getNumColumns();
 
         // TODO only initialize required suppliers in case of partial table.
         // TODO do mapping once. we can use the same mapping for each reader.
         // TODO which mapping to use? output spec from knime or columntypes spec of store?
+
+        // TODO wrong wrong wrong
         m_indexMap = new TIntIntHashMap(selected.length, 0.5f, -1, -1);
-        for (int i = 0; i < m_producers.length; i++) {
+        for (int i = 0; i < selected.length; i++) {
             m_indexMap.put(selected[i], i);
         }
     }
@@ -70,7 +73,7 @@ class PartialRowIterator extends CloseableRowIterator {
         // TODO
         private final StringReadValue m_rowKeyValue;
 
-        private final DataCellProducer[] m_suppliers;
+        private final DataCellProducer[] m_producers;
 
         private final TIntIntHashMap m_indexMap;
 
@@ -79,7 +82,7 @@ class PartialRowIterator extends CloseableRowIterator {
         public PartialFastTableDataRow(final StringReadValue rowKeySupplier, final DataCellProducer[] selectedSuppliers,
             final TIntIntHashMap indexMap, final int numCells) {
             m_rowKeyValue = rowKeySupplier;
-            m_suppliers = selectedSuppliers;
+            m_producers = selectedSuppliers;
             m_numCells = numCells;
             m_indexMap = indexMap;
         }
@@ -131,7 +134,7 @@ class PartialRowIterator extends CloseableRowIterator {
             if (i == -1) {
                 return INSTANCE;
             } else {
-                return m_suppliers[i].get();
+                return m_producers[i].get();
             }
         }
     }
