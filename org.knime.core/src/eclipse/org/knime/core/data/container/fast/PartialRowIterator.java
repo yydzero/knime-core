@@ -32,7 +32,7 @@ class PartialRowIterator extends CloseableRowIterator {
         m_rowKeySupplier = isRowKey ? m_cursor.get(0) : null;
         // TODO use selected
         m_producers = adapter.createProducers(m_cursor, selected);
-        m_numCells = (int)table.getNumColumns();
+        m_numCells = (int)table.getNumColumns() - (isRowKey ? 1 : 0);
 
         // TODO only initialize required suppliers in case of partial table.
         // TODO do mapping once. we can use the same mapping for each reader.
@@ -66,6 +66,7 @@ class PartialRowIterator extends CloseableRowIterator {
         }
     }
 
+    // TODO split in with rowkey and without rowkey
     static class PartialFastTableDataRow implements DataRow {
 
         private static final UnmaterializedCell INSTANCE = UnmaterializedCell.getInstance();
@@ -79,9 +80,12 @@ class PartialRowIterator extends CloseableRowIterator {
 
         private final int m_numCells;
 
+        private final int m_offset;
+
         public PartialFastTableDataRow(final StringReadValue rowKeySupplier, final DataCellProducer[] selectedSuppliers,
             final TIntIntHashMap indexMap, final int numCells) {
             m_rowKeyValue = rowKeySupplier;
+            m_offset = m_rowKeyValue != null ? 1 : 0;
             m_producers = selectedSuppliers;
             m_numCells = numCells;
             m_indexMap = indexMap;
@@ -93,7 +97,7 @@ class PartialRowIterator extends CloseableRowIterator {
         @Override
         public Iterator<DataCell> iterator() {
             return new Iterator<DataCell>() {
-                int idx = 0;
+                int idx = m_offset;
 
                 @Override
                 public boolean hasNext() {
@@ -120,6 +124,10 @@ class PartialRowIterator extends CloseableRowIterator {
          */
         @Override
         public RowKey getKey() {
+            // TODO too expensive? Check per access... :-(
+            if (m_offset == 0) {
+                throw new IllegalStateException("RowKey requested, but not part of table. Implementation error!");
+            }
             return new RowKey(m_rowKeyValue.getStringValue());
         }
 
@@ -134,7 +142,7 @@ class PartialRowIterator extends CloseableRowIterator {
             if (i == -1) {
                 return INSTANCE;
             } else {
-                return m_producers[i].get();
+                return m_producers[index + m_offset].get();
             }
         }
     }

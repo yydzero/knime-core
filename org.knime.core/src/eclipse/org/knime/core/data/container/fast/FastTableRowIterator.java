@@ -47,21 +47,25 @@ class FastTableRowIterator extends CloseableRowIterator {
         }
     }
 
+    // TODO split into with rowkey and without!
     static class FastTableDataRow implements DataRow {
 
-        private StringReadValue m_rowKeyValue;
+        private final StringReadValue m_rowKeyValue;
 
-        private DataCellProducer[] m_producer;
+        private final DataCellProducer[] m_producer;
+
+        private final int m_offset;
 
         public FastTableDataRow(final StringReadValue rowKeyValue, final DataCellProducer[] producer) {
             m_rowKeyValue = rowKeyValue;
             m_producer = producer;
+            m_offset = m_rowKeyValue != null ? 1 : 0;
         }
 
         @Override
         public Iterator<DataCell> iterator() {
             return new Iterator<DataCell>() {
-                int idx = 0;
+                int idx = m_offset;
 
                 @Override
                 public boolean hasNext() {
@@ -83,7 +87,7 @@ class FastTableRowIterator extends CloseableRowIterator {
         @Override
         public RowKey getKey() {
             // TODO too expensive? Check per access... :-(
-            if (m_rowKeyValue == null) {
+            if (m_offset == 0) {
                 throw new IllegalStateException("RowKey requested, but not part of table. Implementation error!");
             }
             return new RowKey(m_rowKeyValue.getStringValue());
@@ -91,7 +95,7 @@ class FastTableRowIterator extends CloseableRowIterator {
 
         @Override
         public DataCell getCell(final int index) {
-            return m_producer[index].get();
+            return m_producer[index + m_offset].get();
         }
     }
 }
