@@ -79,8 +79,7 @@ abstract class AbstractFastTable implements FastTable {
 
     protected boolean m_isRowKey;
 
-    AbstractFastTable(final long id, final DataTableSpec spec, final boolean isRowKey,
-        final DataSpecAdapter adapter) {
+    AbstractFastTable(final long id, final DataTableSpec spec, final boolean isRowKey, final DataSpecAdapter adapter) {
         m_spec = spec;
         m_tableId = id;
         m_isRowKey = isRowKey;
@@ -118,7 +117,11 @@ abstract class AbstractFastTable implements FastTable {
     @SuppressWarnings("resource")
     @Override
     public CloseableRowIterator iterator() {
-        return new FastTableRowIterator(TableStoreUtils.createReadTable(getStore()), m_adapter, m_isRowKey);
+        if (m_isRowKey) {
+            return new FastTableRowIterator(TableStoreUtils.createReadTable(getStore()), m_adapter);
+        } else {
+            return new FastTableRowIteratorNoKey(TableStoreUtils.createReadTable(getStore()), m_adapter);
+        }
     }
 
     @Override
@@ -140,12 +143,18 @@ abstract class AbstractFastTable implements FastTable {
         if (materializeColumnIndices.isPresent()) {
             final int numSelected = materializeColumnIndices.get().size();
             if (numSelected == 0) {
-                return m_isRowKey ? new EmptyRowIterator(TableStoreUtils.createReadTable(store), columnTypes.length)
-                    : new EmptyRowNoKeyIterator(columnTypes.length, store.size());
+                return m_isRowKey ? new EmptyRowIterator(TableStoreUtils.createReadTable(store), columnTypes.length - 1)
+                    : new EmptyRowIteratorNoKey(columnTypes.length, store.size());
             } else if (numSelected < columnTypes.length) {
                 final ReadTable table = TableStoreUtils.createReadTable(store, wrap(filter));
-                return new PartialRowIterator(table, m_adapter, m_isRowKey,
-                    materializeColumnIndices.get().stream().mapToInt((i) -> i).toArray());
+                if (m_isRowKey) {
+                    return new PartialRowIterator(table, m_adapter,
+                        materializeColumnIndices.get().stream().mapToInt((i) -> i).toArray());
+                } else {
+                    return new PartialRowIteratorNoKey(table, m_adapter,
+                        materializeColumnIndices.get().stream().mapToInt((i) -> i).toArray());
+                }
+
             }
         }
 

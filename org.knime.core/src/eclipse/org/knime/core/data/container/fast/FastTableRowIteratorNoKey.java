@@ -9,21 +9,16 @@ import org.knime.core.data.container.CloseableRowIterator;
 import org.knime.core.data.container.fast.AdapterRegistry.DataSpecAdapter;
 import org.knime.core.data.table.ReadTable;
 import org.knime.core.data.table.row.RowReadCursor;
-import org.knime.core.data.table.value.StringReadValue;
 
-class FastTableRowIterator extends CloseableRowIterator {
+class FastTableRowIteratorNoKey extends CloseableRowIterator {
 
     private final RowReadCursor m_cursor;
 
-    // TODO
-    private final StringReadValue m_rowKeyValue;
+    private final DataCellProducer[] m_producers;
 
-    private final DataCellProducer[] m_suppliers;
-
-    FastTableRowIterator(final ReadTable table, final DataSpecAdapter adapter) {
+    FastTableRowIteratorNoKey(final ReadTable table, final DataSpecAdapter adapter) {
         m_cursor = table.newCursor();
-        m_suppliers = adapter.createProducers(m_cursor);
-        m_rowKeyValue = m_cursor.get(0);
+        m_producers = adapter.createProducers(m_cursor);
     }
 
     @Override
@@ -34,7 +29,7 @@ class FastTableRowIterator extends CloseableRowIterator {
     @Override
     public DataRow next() {
         m_cursor.fwd();
-        return new FastTableDataRow(m_rowKeyValue, m_suppliers);
+        return new FastTableDataRowNoKey(m_producers);
     }
 
     @Override
@@ -47,21 +42,18 @@ class FastTableRowIterator extends CloseableRowIterator {
         }
     }
 
-    static class FastTableDataRow implements DataRow {
-
-        private final StringReadValue m_rowKeyValue;
+    static class FastTableDataRowNoKey implements DataRow {
 
         private final DataCellProducer[] m_producer;
 
-        public FastTableDataRow(final StringReadValue rowKeyValue, final DataCellProducer[] producer) {
-            m_rowKeyValue = rowKeyValue;
+        public FastTableDataRowNoKey(final DataCellProducer[] producer) {
             m_producer = producer;
         }
 
         @Override
         public Iterator<DataCell> iterator() {
             return new Iterator<DataCell>() {
-                int idx = 1;
+                int idx = 0;
 
                 @Override
                 public boolean hasNext() {
@@ -82,12 +74,12 @@ class FastTableRowIterator extends CloseableRowIterator {
 
         @Override
         public RowKey getKey() {
-            return new RowKey(m_rowKeyValue.getStringValue());
+            throw new IllegalStateException("RowKey requested, but not part of table. Implementation error!");
         }
 
         @Override
         public DataCell getCell(final int index) {
-            return m_producer[index + 1].get();
+            return m_producer[index].get();
         }
     }
 }

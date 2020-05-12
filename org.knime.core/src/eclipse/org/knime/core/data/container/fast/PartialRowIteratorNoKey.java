@@ -10,16 +10,13 @@ import org.knime.core.data.container.CloseableRowIterator;
 import org.knime.core.data.container.fast.AdapterRegistry.DataSpecAdapter;
 import org.knime.core.data.table.ReadTable;
 import org.knime.core.data.table.row.RowReadCursor;
-import org.knime.core.data.table.value.StringReadValue;
 
 import gnu.trove.map.hash.TIntIntHashMap;
 
-// TODO shared abstract class with NoKey
-class PartialRowIterator extends CloseableRowIterator {
+// TODO share code with RowKey aware implementation
+class PartialRowIteratorNoKey extends CloseableRowIterator {
 
     private final RowReadCursor m_cursor;
-
-    private final StringReadValue m_rowKeySupplier;
 
     private final DataCellProducer[] m_producers;
 
@@ -27,12 +24,11 @@ class PartialRowIterator extends CloseableRowIterator {
 
     private final int m_numCells;
 
-    public PartialRowIterator(final ReadTable table, final DataSpecAdapter adapter, final int[] selected) {
+    public PartialRowIteratorNoKey(final ReadTable table, final DataSpecAdapter adapter, final int[] selected) {
         m_cursor = table.newCursor();
-        m_rowKeySupplier = m_cursor.get(0);
         // TODO use selected
         m_producers = adapter.createProducers(m_cursor, selected);
-        m_numCells = (int)table.getNumColumns() - 1;
+        m_numCells = (int)table.getNumColumns();
 
         // TODO only initialize required suppliers in case of partial table.
         // TODO do mapping once. we can use the same mapping for each reader.
@@ -53,7 +49,7 @@ class PartialRowIterator extends CloseableRowIterator {
     @Override
     public DataRow next() {
         m_cursor.fwd();
-        return new PartialFastTableDataRow(m_rowKeySupplier, m_producers, m_indexMap, m_numCells);
+        return new PartialFastTableDataRow(m_producers, m_indexMap, m_numCells);
     }
 
     @Override
@@ -71,18 +67,14 @@ class PartialRowIterator extends CloseableRowIterator {
 
         private static final UnmaterializedCell INSTANCE = UnmaterializedCell.getInstance();
 
-        // TODO
-        private final StringReadValue m_rowKeyValue;
-
         private final DataCellProducer[] m_producers;
 
         private final TIntIntHashMap m_indexMap;
 
         private final int m_numCells;
 
-        public PartialFastTableDataRow(final StringReadValue rowKeySupplier, final DataCellProducer[] selectedSuppliers,
-            final TIntIntHashMap indexMap, final int numCells) {
-            m_rowKeyValue = rowKeySupplier;
+        public PartialFastTableDataRow(final DataCellProducer[] selectedSuppliers, final TIntIntHashMap indexMap,
+            final int numCells) {
             m_producers = selectedSuppliers;
             m_numCells = numCells;
             m_indexMap = indexMap;
@@ -94,7 +86,7 @@ class PartialRowIterator extends CloseableRowIterator {
         @Override
         public Iterator<DataCell> iterator() {
             return new Iterator<DataCell>() {
-                int idx = 1;
+                int idx = 0;
 
                 @Override
                 public boolean hasNext() {
@@ -121,7 +113,7 @@ class PartialRowIterator extends CloseableRowIterator {
          */
         @Override
         public RowKey getKey() {
-            return new RowKey(m_rowKeyValue.getStringValue());
+            throw new IllegalStateException("RowKey requested, but not part of table. Implementation error!");
         }
 
         /**
@@ -135,7 +127,7 @@ class PartialRowIterator extends CloseableRowIterator {
             if (i == -1) {
                 return INSTANCE;
             } else {
-                return m_producers[index + 1].get();
+                return m_producers[index].get();
             }
         }
     }

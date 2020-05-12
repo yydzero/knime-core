@@ -60,7 +60,7 @@ import org.knime.core.data.container.CloseableRowIterator;
  *
  * @author dietzc
  */
-class EmptyRowNoKeyIterator extends CloseableRowIterator {
+class EmptyRowIteratorNoKey extends CloseableRowIterator {
 
     private final DataRow m_rowInstance;
 
@@ -68,7 +68,7 @@ class EmptyRowNoKeyIterator extends CloseableRowIterator {
 
     private long m_index;
 
-    public EmptyRowNoKeyIterator(final int numCells, final long size) {
+    public EmptyRowIteratorNoKey(final int numCells, final long size) {
         m_size = size;
         m_rowInstance = new CompletelyUnmaterializedRow(numCells);
     }

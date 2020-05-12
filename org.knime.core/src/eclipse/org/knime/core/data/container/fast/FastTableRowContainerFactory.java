@@ -83,6 +83,9 @@ public class FastTableRowContainerFactory implements RowContainerFactory {
 
     private final static ArrowTableStoreFactory FACTORY = new ArrowTableStoreFactory();
 
+    /**
+     * Create
+     */
     public FastTableRowContainerFactory() {
     }
 
