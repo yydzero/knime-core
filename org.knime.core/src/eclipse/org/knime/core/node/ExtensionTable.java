@@ -68,8 +68,8 @@ import org.knime.core.node.BufferedDataTable.KnowsRowCountTable;
  */
 public abstract class ExtensionTable implements KnowsRowCountTable {
 
-    private static final String CFG_TABLE_IMPL = "table_implementation";
-    private static final String CFG_TABLE_DERIVED_SETTINGS =
+    protected static final String CFG_TABLE_IMPL = "table_implementation";
+    protected static final String CFG_TABLE_DERIVED_SETTINGS =
         "table_derived_settings";
 
     @Override
@@ -140,7 +140,6 @@ public abstract class ExtensionTable implements KnowsRowCountTable {
         public ExecutionMonitor getExecutionMonitor() {
             return m_executionMonitor;
         }
-
     }
 
     /**
@@ -220,7 +219,7 @@ public abstract class ExtensionTable implements KnowsRowCountTable {
 
     /** {@inheritDoc} */
     @Override
-    public final void saveToFile(final File f, final NodeSettingsWO settings,
+    public void saveToFile(final File f, final NodeSettingsWO settings,
             final ExecutionMonitor exec) throws IOException,
             CanceledExecutionException {
         settings.addString(CFG_TABLE_IMPL, getClass().getName());

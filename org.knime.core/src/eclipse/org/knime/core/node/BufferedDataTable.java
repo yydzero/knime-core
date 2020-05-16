@@ -87,7 +87,6 @@ import org.knime.core.data.container.RearrangeColumnsTable;
 import org.knime.core.data.container.TableSpecReplacerTable;
 import org.knime.core.data.container.VoidTable;
 import org.knime.core.data.container.WrappedTable;
-import org.knime.core.data.container.fast.FastTableRowContainerFactory;
 import org.knime.core.data.container.filter.CloseableDataRowIterable;
 import org.knime.core.data.container.filter.TableFilter;
 import org.knime.core.data.container.storage.TableStoreFormat;
@@ -543,11 +542,6 @@ public final class BufferedDataTable implements DataTable, PortObject {
      */
     private static final String TABLE_TYPE_CONTAINER_COMPRESS = "container_table_compressed";
 
-    /**
-     * As of 4.2 KNIME offers a new type of table API.
-     */
-    private static final String TABLE_TYPE_CONTAINER_FAST = "container_table_fast";
-
     private static final String TABLE_TYPE_REARRANGE_COLUMN = "rearrange_columns_table";
 
     /**
@@ -621,37 +615,26 @@ public final class BufferedDataTable implements DataTable, PortObject {
                 }
             }
             m_delegate.saveToFile(outFile, s, exec);
-        } else if (FastTableRowContainerFactory.isFastTable(m_delegate)) {
-            // TODO do we need to store anything else here? everything else can be stored by the format, right?
-            s.addString(CFG_TABLE_TYPE, TABLE_TYPE_CONTAINER_FAST);
-            FastTableRowContainerFactory.saveToFile(m_delegate, outFile, s, exec);
         } else {
             if (m_delegate instanceof RearrangeColumnsTable) {
                 ContainerTable appendTable = ((RearrangeColumnsTable)m_delegate).getAppendTable();
                 // TODO delegate couldbe a fast table
                 if (appendTable != null) {
-                    if (FastTableRowContainerFactory.isFastTable(m_delegate)) {
-                        s.addString(CFG_TABLE_TYPE, TABLE_TYPE_REARRANGE_COLUMN);
+                    final BufferedContainerTable buffered = (BufferedContainerTable)appendTable;
+                    // TODO isn't all of that code duplication from above?
+                    final TableStoreFormat format = buffered.getTableStoreFormat();
+                    if (!DefaultTableStoreFormat.class.equals(format.getClass())) {
+                        // use different identifier to cause old versions of KNIME to fail loading newer workflows
+                        s.addString(CFG_TABLE_TYPE, TABLE_TYPE_REARRANGE_COLUMN_CUSTOM);
+                        s.addString(CFG_TABLE_CONTAINER_FORMAT, buffered.getTableStoreFormat().getClass().getName());
+                        s.addString(CFG_TABLE_CONTAINER_FORMAT_VERSION, buffered.getTableStoreFormat().getVersion());
                     } else {
-                        final BufferedContainerTable buffered = (BufferedContainerTable)appendTable;
-                        // TODO isn't all of that code duplication from above?
-                        final TableStoreFormat format = buffered.getTableStoreFormat();
-                        if (!DefaultTableStoreFormat.class.equals(format.getClass())) {
-                            // use different identifier to cause old versions of KNIME to fail loading newer workflows
-                            s.addString(CFG_TABLE_TYPE, TABLE_TYPE_REARRANGE_COLUMN_CUSTOM);
-                            s.addString(CFG_TABLE_CONTAINER_FORMAT,
-                                buffered.getTableStoreFormat().getClass().getName());
-                            s.addString(CFG_TABLE_CONTAINER_FORMAT_VERSION,
-                                buffered.getTableStoreFormat().getVersion());
+                        final DefaultTableStoreFormat defaultFormat = (DefaultTableStoreFormat)format;
+                        if (!Arrays.asList(NONE, GZIP).contains(defaultFormat.getCompressionFormat())) {
+                            s.addString(CFG_TABLE_TYPE, TABLE_TYPE_REARRANGE_COLUMN_COMPRESS);
+                            s.addString(CFG_TABLE_COMPRESSION_FORMAT, defaultFormat.getCompressionFormat().toString());
                         } else {
-                            final DefaultTableStoreFormat defaultFormat = (DefaultTableStoreFormat)format;
-                            if (!Arrays.asList(NONE, GZIP).contains(defaultFormat.getCompressionFormat())) {
-                                s.addString(CFG_TABLE_TYPE, TABLE_TYPE_REARRANGE_COLUMN_COMPRESS);
-                                s.addString(CFG_TABLE_COMPRESSION_FORMAT,
-                                    defaultFormat.getCompressionFormat().toString());
-                            } else {
-                                s.addString(CFG_TABLE_TYPE, TABLE_TYPE_REARRANGE_COLUMN);
-                            }
+                            s.addString(CFG_TABLE_TYPE, TABLE_TYPE_REARRANGE_COLUMN);
                         }
                     }
                 } else {
@@ -837,11 +820,6 @@ public final class BufferedDataTable implements DataTable, PortObject {
                 final ContainerTable cont = BufferedDataContainer.readFromZipDelayed(fileRef, spec, id, dataRepository);
                 t = new BufferedDataTable(cont, id);
                 break;
-            case TABLE_TYPE_CONTAINER_FAST: // added in 4.2
-                final ContainerTable fastTable = FastTableRowContainerFactory.readFromFileDelayed(fileRef, spec, id, dataRepository, s);
-                // TODO I introduced the constructor without id (getting ID from fast-table). can ID of delegate and BufferedTable differ?
-                t = new BufferedDataTable(fastTable);
-                break;
             case TABLE_TYPE_REARRANGE_COLUMN_CUSTOM:
             case TABLE_TYPE_REARRANGE_COLUMN_COMPRESS:
             case TABLE_TYPE_REARRANGE_COLUMN:
@@ -897,7 +875,8 @@ public final class BufferedDataTable implements DataTable, PortObject {
                     }
                     t = new BufferedDataTable(replTable, dataRepository);
                 } else if (tableType.equals(TABLE_TYPE_EXTENSION)) {
-                    ExtensionTable et = ExtensionTable.loadExtensionTable(fileRef, spec, s, tblRep, exec);
+                    ExtensionTable et =
+                        ExtensionTable.loadExtensionTable(fileRef, spec, s, tblRep, exec);
                     t = new BufferedDataTable(et, dataRepository);
                 } else {
                     assert false : "Insufficent case switch: " + tableType;
@@ -1074,6 +1053,42 @@ public final class BufferedDataTable implements DataTable, PortObject {
          */
         @Override
         public CloseableRowIterator iterator();
+
+
+//        // TODO Two variants. One with pre-stored object one as below
+//        default CloseableUnsafeCursor iteratorUnsafe() {
+//            return new CloseableUnsafeCursor() {
+//                final CloseableRowIterator it = iterator();
+//
+//                private DataRow m_currentRow;
+//
+//                public RowKey getRowKey() {
+//                    return m_currentRow.getKey();
+//                }
+//
+//                @Override
+//                public boolean canFwd() {
+//                    return it.hasNext();
+//                }
+//
+//                @Override
+//                public void fwd() {
+//                    m_currentRow = it.next();
+//                }
+//
+//                @Override
+//                public <V extends DataValue> V getValue(final int idx) {
+//                    @SuppressWarnings("unchecked")
+//                    final V cast = (V)m_currentRow.getCell(idx);
+//                    return cast;
+//                }
+//
+//                @Override
+//                public void close() throws Exception {
+//                    it.close();
+//                }
+//            };
+//        }
 
         /**
          * Provides a {@link CloseableRowIterator} that is filtered according to a given {@link TableFilter}. The

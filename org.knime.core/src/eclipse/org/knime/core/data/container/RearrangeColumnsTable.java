@@ -71,7 +71,6 @@ import org.knime.core.data.DataRow;
 import org.knime.core.data.DataTableSpec;
 import org.knime.core.data.RowKey;
 import org.knime.core.data.container.ColumnRearranger.SpecAndFactoryObject;
-import org.knime.core.data.container.fast.FastTableRowContainerFactory;
 import org.knime.core.data.container.filter.TableFilter;
 import org.knime.core.data.def.DefaultRow;
 import org.knime.core.data.filestore.FileStoreFactory;
@@ -99,11 +98,6 @@ import org.knime.core.util.Pair;
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
 public final class RearrangeColumnsTable implements KnowsRowCountTable {
-
-    /**
-     *
-     */
-    private static final String CONTAINER_TYPE_FASTTABLE = "CONTAINER_TYPE_FASTTABLE";
 
     private static final NodeLogger LOGGER = NodeLogger.getLogger(RearrangeColumnsTable.class);
 
@@ -222,14 +216,9 @@ public final class RearrangeColumnsTable implements KnowsRowCountTable {
 
                 assert index == appendColCount;
                 DataTableSpec appendSpec = new DataTableSpec(appendColSpecs);
-                // TODO this definitively SHOULDN't happen in here, but outside and append table should be handed to ColumnRearranger.
-                if (settings.containsKey(CONTAINER_TYPE_FASTTABLE) && settings.getBoolean(CONTAINER_TYPE_FASTTABLE)) {
-                    m_appendTable = FastTableRowContainerFactory.readFromFileDelayed(f, appendSpec, tableID, dataRepository, settings);
-                } else {
-                    final CopyOnAccessTask noKeyBufferOnAccessTask =
-                        new CopyOnAccessTask(f, appendSpec, tableID, dataRepository, false);
-                    m_appendTable = DataContainer.readFromZipDelayed(noKeyBufferOnAccessTask, appendSpec);
-                }
+                final CopyOnAccessTask noKeyBufferOnAccessTask =
+                    new CopyOnAccessTask(f, appendSpec, tableID, dataRepository, false);
+                m_appendTable = DataContainer.readFromZipDelayed(noKeyBufferOnAccessTask, appendSpec);
             }
         } else {
             m_appendTable = null;
@@ -671,13 +660,7 @@ public final class RearrangeColumnsTable implements KnowsRowCountTable {
         subSettings.addBooleanArray(CFG_FLAGS, m_isFromRefTable);
         if (m_appendTable != null) {
             // subSettings argument is ignored in ContainerTable
-            if (FastTableRowContainerFactory.isFastTable(m_appendTable)) {
-                s.addBoolean(CONTAINER_TYPE_FASTTABLE, true);
-                FastTableRowContainerFactory.saveToFile(m_appendTable, f, s, exec);
-            } else {
-                s.addBoolean(CONTAINER_TYPE_FASTTABLE, false);
-                m_appendTable.saveToFile(f, subSettings, exec);
-            }
+            m_appendTable.saveToFile(f, subSettings, exec);
         }
     }
 

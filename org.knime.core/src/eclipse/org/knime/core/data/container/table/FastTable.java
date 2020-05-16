@@ -44,112 +44,41 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   May 3, 2020 (dietzc): created
+ *   May 1, 2020 (dietzc): created
  */
-package org.knime.core.data.container.fast;
+package org.knime.core.data.container.table;
 
-import java.util.Iterator;
-
-import org.knime.core.data.DataCell;
-import org.knime.core.data.DataRow;
-import org.knime.core.data.RowKey;
-import org.knime.core.data.UnmaterializedCell;
-import org.knime.core.data.container.CloseableRowIterator;
+import org.knime.core.data.container.ContainerTable;
+import org.knime.core.data.table.store.TableChunkReadStore;
+import org.knime.core.node.BufferedDataTable;
+import org.knime.core.node.BufferedDataTable.KnowsRowCountTable;
 
 /**
+ * Alternative to Buffer based implementations of {@link ContainerTable}s.
  *
- * @author dietzc
+ * TODO naming, docs
+ *
+ * @author Christian Dietz, KNIME GmbH
+ * @since 4.2
+ *
+ * @noreference This interface is not intended to be referenced by clients.
  */
-class EmptyRowIteratorNoKey extends CloseableRowIterator {
-
-    private final DataRow m_rowInstance;
-
-    private final long m_size;
-
-    private long m_index;
-
-    public EmptyRowIteratorNoKey(final int numCells, final long size) {
-        m_size = size;
-        m_rowInstance = new CompletelyUnmaterializedRow(numCells);
-    }
+interface FastTable extends ContainerTable {
 
     /**
-     * {@inheritDoc}
+     * @return the underlying store
      */
+    TableChunkReadStore getStore();
+
     @Override
-    public void close() {
-        // No op
+    default BufferedDataTable[] getReferenceTables() {
+        return new BufferedDataTable[0];
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    @SuppressWarnings("deprecation")
     @Override
-    public boolean hasNext() {
-        return m_index < m_size;
+    default int getRowCount() {
+        return KnowsRowCountTable.checkRowCount(size());
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public DataRow next() {
-        m_index++;
-        return m_rowInstance;
-    }
-
-    static class CompletelyUnmaterializedRow implements DataRow {
-
-        private static final UnmaterializedCell INSTANCE = UnmaterializedCell.getInstance();
-
-        private final int m_numCells;
-
-        CompletelyUnmaterializedRow(final int numCells) {
-            m_numCells = numCells;
-        }
-
-        // TODO in case of filtering, over what columns do I actually iterate?
-        @Override
-        public Iterator<DataCell> iterator() {
-            return new Iterator<DataCell>() {
-
-                int i = 0;
-
-                @Override
-                public boolean hasNext() {
-                    return i < m_numCells;
-                }
-
-                @Override
-                public DataCell next() {
-                    i++;
-                    return INSTANCE;
-                }
-            };
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public int getNumCells() {
-            return m_numCells;
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public RowKey getKey() {
-            throw new IllegalStateException("RowKey requested but not available!");
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public DataCell getCell(final int index) {
-            return INSTANCE;
-        }
-    }
 }

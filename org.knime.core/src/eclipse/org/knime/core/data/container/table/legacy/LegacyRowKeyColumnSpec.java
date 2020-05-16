@@ -44,47 +44,53 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   May 1, 2020 (dietzc): created
+ *   May 23, 2020 (dietzc): created
  */
-package org.knime.core.data.container.fast;
+package org.knime.core.data.container.table.legacy;
 
 import org.knime.core.data.RowKey;
-import org.knime.core.data.container.ContainerTable;
-import org.knime.core.data.table.store.TableReadStore;
-import org.knime.core.node.BufferedDataTable;
-import org.knime.core.node.BufferedDataTable.KnowsRowCountTable;
+import org.knime.core.data.container.table.RowKeyReadValue;
+import org.knime.core.data.container.table.RowKeyWriteValue;
+import org.knime.core.data.table.ColumnSpec;
+import org.knime.core.data.table.access.AbstractColumnChunkAccess;
+import org.knime.core.data.table.access.ColumnChunkAccess;
+import org.knime.core.data.table.store.ColumnChunkSpec;
+import org.knime.core.data.table.store.types.StringChunk;
 
 /**
- * Alternative to Buffer based implementations of {@link ContainerTable}s.
+ * TODO can be implemented differently later.
  *
- * TODO naming, docs
- *
- * @author Christian Dietz, KNIME GmbH
- * @since 4.2
- *
- * @noreference This interface is not intended to be referenced by clients.
+ * @author Christian Dietz
  */
-interface FastTable extends ContainerTable {
+class LegacyRowKeyColumnSpec implements ColumnSpec<StringChunk> {
 
     /**
-     * @return <code>true</code> if {@link RowKey}s are stored part of this table.
+     * {@inheritDoc}
      */
-    boolean isRowKeys();
+    @Override
+    public ColumnChunkSpec<StringChunk> getColumnChunkSpec() {
+        return new StringChunk.StringChunkSpec(false);
+    }
 
     /**
-     * @return the underlying store
+     * {@inheritDoc}
      */
-    TableReadStore getStore();
-
     @Override
-    default BufferedDataTable[] getReferenceTables() {
-        return new BufferedDataTable[0];
+    public ColumnChunkAccess<StringChunk> createAccess() {
+        return null;
     }
 
-    @SuppressWarnings("deprecation")
-    @Override
-    default int getRowCount() {
-        return KnowsRowCountTable.checkRowCount(size());
-    }
+    class RowKeyAccess extends AbstractColumnChunkAccess<StringChunk> implements RowKeyReadValue, RowKeyWriteValue {
 
+        @Override
+        public void setRowKey(final RowKey key) {
+            m_data.setString(m_index, key.toString());
+        }
+
+        @Override
+        public RowKey getRowKey() {
+            return new RowKey(m_data.getString(m_index));
+        }
+
+    }
 }

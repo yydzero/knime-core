@@ -44,22 +44,38 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   May 9, 2020 (dietzc): created
+ *   May 23, 2020 (dietzc): created
  */
-package org.knime.core.data.container.fast;
+package org.knime.core.data.container.table;
 
-import org.knime.core.data.DataCell;
-import org.knime.core.data.MissingCell;
+import org.knime.core.data.DataTableSpec;
+import org.knime.core.data.table.TableSchema;
+import org.knime.core.node.config.ConfigRO;
+import org.knime.core.node.config.ConfigWO;
 
 /**
- * TODO
+ * Implementations of this class must have an empty constructor
  *
  * @author Christian Dietz, KNIME GmbH
+ *
+ * @noimplement This interface is not intended to be implemented by clients.
+ * @noreference This interface is not intended to be referenced by clients.
  */
-interface DataCellProducer {
+public interface TableSchemaMapping {
 
     /**
-     * @return {@link DataCell} at current position. Can be {@link MissingCell}.
+     * @return the mapped TableSchema
      */
-    DataCell get();
+    TableSchema getSchema();
+
+    /**
+     * @param settings save mapping to settings
+     */
+    void saveTo(ConfigWO settings);
+
+    /**
+     * @param spec table spec to derive mapping from
+     * @param settings load mapping from settings
+     */
+    void loadFrom(DataTableSpec spec, ConfigRO settings);
 }

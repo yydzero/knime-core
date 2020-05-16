@@ -53,7 +53,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.knime.core.data.DataTableSpec;
-import org.knime.core.data.container.fast.FastTableRowContainerFactory;
+import org.knime.core.data.container.table.legacy.LegacyRowContainerFactory;
 
 /**
  * Factory to create {@link RowContainer}s.
@@ -67,7 +67,7 @@ public final class RowContainerFactoryRegistry {
 
     static {
         // TODO we don't want this dependency here
-        add(new FastTableRowContainerFactory());
+        add(new LegacyRowContainerFactory());
     }
 
     private RowContainerFactoryRegistry() {

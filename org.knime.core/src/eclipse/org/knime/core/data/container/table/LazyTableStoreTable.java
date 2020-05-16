@@ -1,20 +1,19 @@
-package org.knime.core.data.container.fast;
+package org.knime.core.data.container.table;
 
 import java.io.File;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.TimerTask;
 
-import org.knime.core.data.DataTableSpec;
-import org.knime.core.data.IDataRepository;
-import org.knime.core.data.container.fast.AdapterRegistry.DataSpecAdapter;
-import org.knime.core.data.table.column.ColumnType;
-import org.knime.core.data.table.store.TableReadStore;
-import org.knime.core.data.table.store.TableStoreFactory;
+import org.knime.core.data.table.TableSchema;
+import org.knime.core.data.table.store.TableChunkReadStore;
+import org.knime.core.data.table.store.TableChunkStoreFactory;
 import org.knime.core.internal.ReferencedFile;
 import org.knime.core.node.CanceledExecutionException;
 import org.knime.core.node.ExecutionMonitor;
+import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.NodeLogger;
+import org.knime.core.node.NodeSettingsRO;
 import org.knime.core.node.NodeSettingsWO;
 import org.knime.core.util.KNIMETimer;
 
@@ -24,20 +23,29 @@ import org.knime.core.util.KNIMETimer;
  * @author Christian Dietz, KNIME GmbH
  * @since 4.2
  */
-class LazyFastTable extends AbstractFastTable {
+public class LazyTableStoreTable extends AbstractFastTable {
 
     private AccessTask m_readTask;
 
-    private TableReadStore m_store;
+    private TableChunkReadStore m_store;
 
-    private IDataRepository m_repository;
+    /**
+     * TODO
+     *
+     * @param context
+     * @throws InvalidSettingsException
+     */
+    public LazyTableStoreTable(final LoadContext context) throws InvalidSettingsException {
+        super(-1, context.getTableSpec(), null, context.getSettings().getLong(FAST_TABLE_CONTAINER_SIZE));
 
-    LazyFastTable(final IDataRepository repository, final ReferencedFile fileRef, final int tableId,
-        final DataTableSpec spec, final TableStoreFactory factory, final DataSpecAdapter adapter,
-        final long size, final boolean isRowKeys) {
-        super(tableId, spec, isRowKeys, adapter);
-        m_repository = repository;
-        m_readTask = new AccessTask(fileRef, factory, adapter.getColumnTypes(), size);
+        final NodeSettingsRO settings = context.getSettings();
+        final TableSchemaMapping mapping = FastTableUtil.createInstance(settings.getString(FAST_TABLE_MAPPING_TYPE));
+        mapping.loadFrom(context.getTableSpec(), settings.getNodeSettings(FAST_TABLE_SCHEMA));
+
+        // TODO access table store factory from central registry to avoid several root contexts.
+        m_readTask = new AccessTask(context.getDataFileRef(),
+            FastTableUtil.createInstance(context.getSettings().getString(FAST_TABLE_CONTAINER_TYPE)),
+            mapping.getSchema());
     }
 
     @Override
@@ -69,26 +77,19 @@ class LazyFastTable extends AbstractFastTable {
             }
         } catch (Exception ex) {
         }
-
-        if (m_readTask != null) {
-            m_repository.removeTable(getTableId());
-        }
     }
 
     @Override
-    public TableReadStore getStore() {
+    public TableChunkReadStore getStore() {
         ensureOpen();
         return m_store;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public long size() {
-        ensureOpen();
-        return m_store.size();
-    }
-
-    @Override
-    public void saveToFile(final File f, final NodeSettingsWO settings, final ExecutionMonitor exec)
+    protected void saveToFileOverwrite(final File f, final NodeSettingsWO settings, final ExecutionMonitor exec)
         throws IOException, CanceledExecutionException {
         throw new IllegalStateException("Lazy fast tables have already been saved. This is an implementation error!");
     }
@@ -99,11 +100,9 @@ class LazyFastTable extends AbstractFastTable {
 
         private final ReferencedFile m_fileRef;
 
-        private final TableStoreFactory m_factory;
+        private final TableChunkStoreFactory m_factory;
 
-        private final ColumnType<?, ?>[] m_columnTypes;
-
-        private final long m_size;
+        private final TableSchema m_schema;
 
         /**
          * Delay im ms until copying process is reported to LOGGER, small files won't report their copying (if faster
@@ -111,15 +110,13 @@ class LazyFastTable extends AbstractFastTable {
          */
         private static final long NOTIFICATION_DELAY = 3000;
 
-        AccessTask(final ReferencedFile file, final TableStoreFactory factory, final ColumnType<?, ?>[] columnTypes,
-            final long size) {
-            m_columnTypes = columnTypes;
+        AccessTask(final ReferencedFile file, final TableChunkStoreFactory factory, final TableSchema schema) {
+            m_schema = schema;
             m_factory = factory;
             m_fileRef = file;
-            m_size = size;
         }
 
-        TableReadStore createTableStore() {
+        TableChunkReadStore createTableStore() {
             // timer task which prints a INFO message that the copying
             // is in progress.
             TimerTask timerTask = null;
@@ -139,7 +136,7 @@ class LazyFastTable extends AbstractFastTable {
                 KNIMETimer.getInstance().schedule(timerTask, NOTIFICATION_DELAY);
 
                 // TODO why do we have to copy if we make sure we don't delete?
-                return m_factory.create(m_columnTypes, file, m_size);
+                return m_factory.createReadStore(m_schema, file);
             } catch (Exception ex) {
                 throw new RuntimeException(
                     "Exception while accessing file: \"" + m_fileRef.getFile().getName() + "\": " + ex.getMessage(),
