@@ -77,6 +77,7 @@ import org.knime.core.data.convert.map.TypedCellValueProducerFactory;
 
 /**
  * @author Marcel Wiedenmann, KNIME GmbH, Konstanz, Germany
+ * @since 4.2
  */
 public final class Mappers {
 
